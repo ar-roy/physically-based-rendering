@@ -1,0 +1,6 @@
+# Visual Studio
+**/x64
+**/.vs
+
+# Mac
+.DS_Store
