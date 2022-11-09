@@ -47,8 +47,9 @@ int main()
     glfwInit();
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
-    glfwWindowHint(GLFW_SAMPLES, 4);
+    //glfwWindowHint(GLFW_SAMPLES, 4);
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
+
 
 #ifdef __APPLE__
     glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);
@@ -68,14 +69,6 @@ int main()
     glfwSetCursorPosCallback(window, mouse_callback);
     glfwSetScrollCallback(window, scroll_callback);
     glfwSetMouseButtonCallback(window, MouseButtonCallback);
-
-	// Initialize ImGUI
-	IMGUI_CHECKVERSION();
-	ImGui::CreateContext();
-	ImGuiIO& io = ImGui::GetIO(); (void)io;
-	ImGui::StyleColorsDark();
-	ImGui_ImplGlfw_InitForOpenGL(window, true);
-	ImGui_ImplOpenGL3_Init("#version 330");
 
     // tell GLFW to capture our mouse
     //glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
@@ -98,7 +91,16 @@ int main()
 
     shader.use();
     shader.setVec3("albedo", 0.5f, 0.0f, 0.0f);
-    shader.setFloat("ao", 1.0f);
+
+ 	// Initialize ImGUI
+	IMGUI_CHECKVERSION();
+	ImGui::CreateContext();
+	ImGuiIO& io = ImGui::GetIO(); (void)io;
+	ImGui::StyleColorsDark();
+	ImGui_ImplGlfw_InitForOpenGL(window, true);
+	ImGui_ImplOpenGL3_Init("#version 330");
+
+   shader.setFloat("ao", 1.0f);
 
     // lights
     // ------
@@ -124,6 +126,8 @@ int main()
     shader.use();
     shader.setMat4("projection", projection);
 
+	float tmp[4] = {300.f/255.f, 300.f/255.f, 300.f/255.f, 1.f};
+	bool turnonlight;
     // render loop
     // -----------
     while (!glfwWindowShouldClose(window))
@@ -142,6 +146,62 @@ int main()
         // ------
         glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+		ImGui_ImplOpenGL3_NewFrame();
+		ImGui_ImplGlfw_NewFrame();
+		ImGui::NewFrame();
+
+		// ImGUI window creation
+		ImGui::Begin("PBR");
+        /*
+		if (ImGui::SliderInt("Slices", &slices, 1, 100, "%d", 0)) {
+			BuildScene(VBO, VAO, stacks, slices); //rebuild scene if the subdivision has changed
+		}
+		if (ImGui::SliderInt("line width", &lineWidth, 1, 10, "%d", 0)) {
+			glLineWidth(lineWidth); //set the new point size if it has been changed			
+		}
+
+		if (ImGui::SliderFloat("Bulge - speed", &timeIncr, 0, 3.f, "%f", 0));
+
+		if (ImGui::Checkbox("Filled", &filled)) {
+			if (filled) glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+			else glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+		}
+        */
+
+		if (ImGui::Checkbox("light", &turnonlight)) {
+            if (!turnonlight)
+            {
+				for (int i = 0; i < 4; i++)
+				{
+					lightColors[i][0] = 0.f;
+					lightColors[i][1] = 0.f;
+					lightColors[i][2] = 0.f;
+				}
+            }
+            else
+            {
+				for (int i = 0; i < 4; i++)
+				{
+				lightColors[i][0] = tmp[0] * 255;
+				lightColors[i][1] = tmp[1] * 255;
+				lightColors[i][2] = tmp[2] * 255;
+				}
+
+            }
+		}
+        if ((ImGui::ColorEdit3("picker", tmp)) && turnonlight)
+        {
+			for (int i = 0; i < 4; i++)
+			{
+				lightColors[i][0] = tmp[0] * 255;
+				lightColors[i][1] = tmp[1] * 255;
+				lightColors[i][2] = tmp[2] * 255;
+			}
+
+        }
+		// Ends the window
+		ImGui::End();
 
         shader.use();
         glm::mat4 view = camera.GetViewMatrix();
@@ -187,6 +247,8 @@ int main()
             renderSphere();
         }
 
+		ImGui::Render();
+		ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
         // glfw: swap buffers and poll IO events (keys pressed/released, mouse moved etc.)
         // -------------------------------------------------------------------------------
         glfwSwapBuffers(window);
