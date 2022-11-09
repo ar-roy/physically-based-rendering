@@ -20,6 +20,7 @@
 void framebuffer_size_callback(GLFWwindow* window, int width, int height);
 void mouse_callback(GLFWwindow* window, double xpos, double ypos);
 void scroll_callback(GLFWwindow* window, double xoffset, double yoffset);
+void MouseButtonCallback(GLFWwindow* window, int button, int state, int mods);
 void processInput(GLFWwindow* window);
 unsigned int loadTexture(const char* path);
 void renderSphere();
@@ -66,6 +67,7 @@ int main()
     glfwSetFramebufferSizeCallback(window, framebuffer_size_callback);
     glfwSetCursorPosCallback(window, mouse_callback);
     glfwSetScrollCallback(window, scroll_callback);
+    glfwSetMouseButtonCallback(window, MouseButtonCallback);
 
 	// Initialize ImGUI
 	IMGUI_CHECKVERSION();
@@ -242,11 +244,6 @@ void mouse_callback(GLFWwindow* window, double xposIn, double yposIn)
 
     float xoffset = xpos - lastX;
     float yoffset = lastY - ypos; // reversed since y-coordinates go from bottom to top
-    if (yoffset > 3 || xoffset > 3)
-    {
-		xoffset = 0;
-		yoffset = 0;
-    }
 
     lastX = xpos;
     lastY = ypos;
@@ -259,6 +256,29 @@ void mouse_callback(GLFWwindow* window, double xposIn, double yposIn)
 void scroll_callback(GLFWwindow* window, double xoffset, double yoffset)
 {
     camera.ProcessMouseScroll(static_cast<float>(yoffset));
+}
+
+void MouseButtonCallback(GLFWwindow* window, int button, int state, int mods) 
+{
+    double x, y;
+//do not forget to pass the events to ImGUI!
+	
+	ImGuiIO& io = ImGui::GetIO();
+	io.AddMouseButtonEvent(button, state);
+	if (io.WantCaptureMouse) return; //make sure you do not call this callback when over a menu
+
+//process them
+	if (button == GLFW_MOUSE_BUTTON_LEFT && state == GLFW_PRESS)
+	{
+		glfwGetCursorPos(window, &x, &y);
+        lastX = x;
+        lastY = y;
+		mouseLeft = true;
+	}
+	if (button == GLFW_MOUSE_BUTTON_LEFT  && state == GLFW_RELEASE)
+	{
+		mouseLeft = false;
+	}
 }
 
 // renders (and builds at first invocation) a sphere
