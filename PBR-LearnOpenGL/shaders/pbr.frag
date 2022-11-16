@@ -1,3 +1,6 @@
+//Source integrated from
+//https://github.com/JoeyDeVries/LearnOpenGL/blob/master/src/6.pbr/1.2.lighting_textured/1.2.pbr.fs
+
 #version 330 core
 out vec4 FragColor;
 in vec2 TexCoords;
