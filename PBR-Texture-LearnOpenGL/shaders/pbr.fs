@@ -9,10 +9,11 @@ in vec3 WorldPos;
 in vec3 Normal;
 
 // material parameters
-//uniform vec3 albedo;
-//uniform float metallic;
-//uniform float roughness;
-//uniform float ao;
+uniform float useColor;
+uniform vec3 albedoVal;
+uniform float metallicVal;
+uniform float roughnessVal;
+uniform float aoVal;
 uniform sampler2D albedoMap;
 uniform sampler2D normalMap;
 uniform sampler2D metallicMap;
@@ -94,13 +95,12 @@ vec3 fresnelSchlick(float cosTheta, vec3 F0)
 // ----------------------------------------------------------------------------
 void main()
 {
-    vec3 albedo     = pow(texture(albedoMap, TexCoords).rgb, vec3(2.2));
-    float metallic  = texture(metallicMap, TexCoords).r;
-    float roughness = texture(roughnessMap, TexCoords).r;
-    float ao        = texture(aoMap, TexCoords).r;
+    vec3 albedo     = mix(pow(texture(albedoMap, TexCoords).rgb, vec3(2.2)), albedoVal, useColor);
+    float metallic  = mix(texture(metallicMap, TexCoords).r, metallicVal, useColor);
+    float roughness = mix(texture(roughnessMap, TexCoords).r, roughnessVal, useColor);
+    float ao        = mix(texture(aoMap, TexCoords).r, aoVal, useColor);
 
-    vec3 N = getNormalFromMap();
-    //vec3 N = normalize(Normal);
+    vec3 N = mix(getNormalFromMap(), normalize(Normal), useColor);
     vec3 V = normalize(camPos - WorldPos);
 
     // calculate reflectance at normal incidence; if dia-electric (like plastic) use F0 

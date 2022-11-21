@@ -25,9 +25,15 @@ unsigned int loadTexture(const char* path);
 void renderSphere();
 
 struct TextureProfile {
+    string path;
+    bool loaded;
     unsigned int albedo, normal, metallic, roughness, ao;
 
-    explicit TextureProfile(const string& path) {
+    explicit TextureProfile(const string& path) : path(path), loaded(false),
+                                                  albedo(-1), normal(-1), metallic(-1), roughness(-1), ao(-1) {
+    }
+
+    void load() {
         string tmp;
         tmp = path + "/albedo.png";
         albedo = loadTexture(tmp.c_str());
@@ -39,9 +45,11 @@ struct TextureProfile {
         roughness = loadTexture(tmp.c_str());
         tmp = path + "/ao.png";
         ao = loadTexture(tmp.c_str());
+        loaded = true;
     }
 
     void apply() {
+        if (!loaded) load();
         glActiveTexture(GL_TEXTURE0);
         glBindTexture(GL_TEXTURE_2D, albedo);
         glActiveTexture(GL_TEXTURE1);
@@ -185,31 +193,28 @@ int main()
 		ImGui_ImplGlfw_NewFrame();
 		ImGui::NewFrame();
 
-        bool demo_show = false;
-        ImGui::ShowDemoWindow(&demo_show);
-
 		// ImGUI window creation
+        static const char* texture_names[] = { "color", "gold", "grass", "plastic", "rusted", "wall" };
+        static TextureProfile* texture_files[] = { nullptr, &txGold, &txGrass, &txPlastic, &txRusted, &txWall };
+        static int selected_texture = 0;
+        static float roughness = .2, metallic = 0.;
+        static float albedo[3] = { 1., 0., 0. };
+
 		ImGui::Begin("PBR");
-        const char* textures[] = { "color", "gold", "grass", "plastic", "rusted", "wall" };
-        static int selected_texture = 3;
-        ImGui::Combo("texture", &selected_texture, textures, IM_ARRAYSIZE(textures));
-        //cout << "selected texture = " << textures[selected_texture] << endl;
-        switch (selected_texture) {
-        case 1:
-            txGold.apply();
-            break;
-        case 2:
-            txGrass.apply();
-            break;
-        case 3:
-            txPlastic.apply();
-            break;
-        case 4:
-            txRusted.apply();
-            break;
-        case 5:
-            txWall.apply();
-            break;
+        ImGui::Combo("texture", &selected_texture, texture_names, IM_ARRAYSIZE(texture_names));
+        if (texture_files[selected_texture]) {
+            shader.setFloat("useColor", 0.);
+            texture_files[selected_texture]->apply();
+        }
+        else {
+            ImGui::ColorEdit3("albedo", albedo);
+            ImGui::SliderFloat("roughness", &roughness, 0., 1., "%.4f");
+            ImGui::SliderFloat("metallic", &metallic, 0., 1., "%.4f");
+            shader.setFloat("useColor", 1.);
+            shader.setVec3("albedoVal", glm::vec3(albedo[0], albedo[1], albedo[2]));
+            shader.setFloat("roughnessVal", roughness);
+            shader.setFloat("metallicVal", metallic);
+            shader.setFloat("aoVal", 1.);
         }
 		// Ends the window
 		ImGui::End();
