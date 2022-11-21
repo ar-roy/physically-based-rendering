@@ -51,6 +51,11 @@ std::vector<glm::vec3> loadedModelPos;
 std::vector<glm::vec2> loadedModelUv;
 std::vector<glm::vec3> loadedModelNormals;
 
+// light source related
+float lightZ = 10.f;
+float lightD = 2.5f;
+float lightMoveSpeed = 2.f;
+
 
 int main()
 {
@@ -117,17 +122,22 @@ int main()
     // lights
     // ------
     glm::vec3 lightPositions[] = {
-        //glm::vec3(-10.0f,  10.0f, 10.0f),
-        //glm::vec3(10.0f,  10.0f, 10.0f),
-        //glm::vec3(-10.0f, -10.0f, 10.0f),
-        //glm::vec3(10.0f, -10.0f, 10.0f),
-
-        glm::vec3(0.0f,  5.0f, 10.0f),
-        glm::vec3(0.0f,  -5.0f, 10.0f),
-        glm::vec3(5.0f, 0.0f, 10.0f),
-        glm::vec3(-5.0f, 0.0f, 10.0f)
+        glm::vec3(lightD, lightD, lightZ),
+        glm::vec3(lightD, -lightD, lightZ),
+        glm::vec3(-lightD, lightD, lightZ),
+        glm::vec3(-lightD, -lightD, lightZ),
+        
+        glm::vec3(0.0f,  2.f*lightD, lightZ),
+        glm::vec3(0.0f, -2.f*lightD, lightZ),
+        glm::vec3(2.f*lightD,  0.0f, lightZ),
+        glm::vec3(-2.f*lightD, 0.0f, lightZ)
     };
     glm::vec3 lightColors[] = {
+        glm::vec3(300.0f, 300.0f, 300.0f),
+        glm::vec3(300.0f, 300.0f, 300.0f),
+        glm::vec3(300.0f, 300.0f, 300.0f),
+        glm::vec3(300.0f, 300.0f, 300.0f),
+
         glm::vec3(300.0f, 300.0f, 300.0f),
         glm::vec3(300.0f, 300.0f, 300.0f),
         glm::vec3(300.0f, 300.0f, 300.0f),
@@ -273,7 +283,13 @@ int main()
 		shader.setVec3("albedo", 1.0f, 1.0f, 1.0f);
         for (unsigned int i = 0; i < sizeof(lightPositions) / sizeof(lightPositions[0]); ++i)
         {
-            glm::vec3 newPos = lightPositions[i] + glm::vec3(sin(glfwGetTime() * 5.0) * 5.0, 0.0, 0.0);
+            glm::vec3 newPos = lightPositions[i] + lightMoveSpeed * glm::vec3(sin(glfwGetTime() * 5.0) * 5.0, 0.0, 0.0);
+            if (i < 4) {
+                newPos = lightPositions[i];
+                glm::mat4 rotateMat = glm::mat4(1.f);
+                rotateMat = glm::rotate(rotateMat, (float)glfwGetTime(), glm::vec3(0.f, 1.f, 0.f));
+                newPos = glm::vec3(rotateMat * glm::vec4(newPos, 1.f));
+            }
             //newPos = lightPositions[i];
             shader.setVec3("lightPositions[" + std::to_string(i) + "]", newPos);
             shader.setVec3("lightColors[" + std::to_string(i) + "]", lightColors[i]);
