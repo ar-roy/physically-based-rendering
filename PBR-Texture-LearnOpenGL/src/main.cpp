@@ -149,16 +149,16 @@ int main()
     // lights
     // ------
     glm::vec3 lightPositions[] = {
-        glm::vec3(0.0f,  5.0f, 10.0f),
-        glm::vec3(0.0f,  -5.0f, 10.0f),
-        glm::vec3(5.0f, 0.0f, 10.0f),
-        glm::vec3(-5.0f, 0.0f, 10.0f)
+        glm::vec3(0.0f,  10.0f, 10.0f),
+        glm::vec3(0.0f,  -10.0f, 10.0f),
+        glm::vec3(10.0f, 0.0f, 10.0f),
+        glm::vec3(-10.0f, 0.0f, 10.0f)
     };
     glm::vec3 lightColors[] = {
-        glm::vec3(300.0f, 300.0f, 300.0f),
-        glm::vec3(300.0f, 300.0f, 300.0f),
-        glm::vec3(300.0f, 300.0f, 300.0f),
-        glm::vec3(300.0f, 300.0f, 300.0f)
+        glm::vec3(150.f, 150.f, 150.f),
+        glm::vec3(150.f, 150.f, 150.f),
+        glm::vec3(150.f, 150.f, 150.f),
+        glm::vec3(150.f, 150.f, 150.f)
     };
     int nrRows = 7;
     int nrColumns = 7;
@@ -216,9 +216,12 @@ int main()
             shader.setFloat("aoVal", 1.);
         }
 
-        float ambient = .03;
+        static float ambient = .03;
+        static bool hdr_gamma = true;
+        ImGui::Checkbox("HDR / Gamma Correction", &hdr_gamma);
         ImGui::SliderFloat("ambient", &ambient, 0, 0.1, "%.4f");
         shader.setFloat("ambientVal", ambient);
+        shader.setFloat("useCorrection", hdr_gamma ? 1. : 0.);
         
         static bool fresnel_schlick = true;
         static float fresnel0 = 0.04;
@@ -226,6 +229,14 @@ int main()
         ImGui::SliderFloat("F0", &fresnel0, 0., 1., "%.4f");
         shader.setFloat("useFresnelSchlick", fresnel_schlick ? 1. : 0.);
         shader.setFloat("f0Val", fresnel0);
+
+        static const char* ndf_options[] = { "GGX Trowbridge-Reitz", "Blinn-Phong", "off"};
+        static const char* geo_options[] = { "Smith Schlick-GGX", "Kelemen", "off" };
+        static int selected_ndf = 0, selected_geo = 0;
+        ImGui::Combo("Normal Distribution", &selected_ndf, ndf_options, IM_ARRAYSIZE(ndf_options));
+        ImGui::Combo("Geometry", &selected_geo, geo_options, IM_ARRAYSIZE(geo_options));
+        shader.setFloat("useNDF", selected_ndf);
+        shader.setFloat("useGeometry", selected_geo);
 		// Ends the window
 		ImGui::End();
 

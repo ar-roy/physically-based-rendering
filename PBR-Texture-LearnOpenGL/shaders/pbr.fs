@@ -10,18 +10,23 @@ in vec3 Normal;
 
 // material parameters
 uniform float useColor;
-uniform float ambientVal;
-uniform float useFresnelSchlick;
-uniform float f0Val;
 uniform vec3 albedoVal;
 uniform float metallicVal;
 uniform float roughnessVal;
 uniform float aoVal;
+
 uniform sampler2D albedoMap;
 uniform sampler2D normalMap;
 uniform sampler2D metallicMap;
 uniform sampler2D roughnessMap;
 uniform sampler2D aoMap;
+
+uniform float useCorrection;
+uniform float ambientVal;
+uniform float f0Val;
+uniform float useFresnelSchlick;
+uniform float useGeometry;
+uniform float useNDF;
 
 // lights
 uniform vec3 lightPositions[4];
@@ -62,9 +67,11 @@ float DistributionGGX(vec3 N, vec3 H, float roughness)
     float nom   = a2;
     float denom = (NdotH2 * (a2 - 1.0) + 1.0);
     denom = PI * denom * denom;
+    float a21 = max(a2, 1e-5);
 
-    //return pow(NdotH, 2./a2-2)/PI/a2;
-    return nom / denom;
+    return mix(mix(1.,
+                   pow(NdotH, 2./a21-2+1e-5)/PI/a21, step(useNDF, 1.)),
+               nom / denom, step(useNDF, 0.));
 }
 // ----------------------------------------------------------------------------
 float GeometrySchlickGGX(float NdotV, float roughness)
@@ -87,8 +94,9 @@ float GeometrySmith(vec3 N, vec3 V, vec3 L, float roughness)
     float ggx2 = GeometrySchlickGGX(NdotV, roughness);
     float ggx1 = GeometrySchlickGGX(NdotL, roughness);
 
-    //return NdotV * NdotL / VdotH / VdotH;
-    return ggx1 * ggx2;
+    return mix(mix(1.,
+                   NdotV * NdotL / VdotH / VdotH, step(useGeometry, 1.)),
+               ggx1 * ggx2, step(useGeometry, 0.));
 }
 // ----------------------------------------------------------------------------
 vec3 fresnelSchlick(float cosTheta, vec3 F0)
@@ -159,6 +167,7 @@ void main()
     color = color / (color + vec3(1.0));
     // gamma correct
     color = pow(color, vec3(1.0/2.2)); 
+    color = mix(ambient + Lo, color, useCorrection);
 
     FragColor = vec4(color, 1.0);
 }
