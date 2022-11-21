@@ -1,3 +1,7 @@
+#include "imgui.h"
+#include "imgui_impl_glfw.h"
+#include "imgui_impl_opengl3.h"
+
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
 #include <stb_image.h>
@@ -15,6 +19,7 @@
 void framebuffer_size_callback(GLFWwindow* window, int width, int height);
 void mouse_callback(GLFWwindow* window, double xpos, double ypos);
 void scroll_callback(GLFWwindow* window, double xoffset, double yoffset);
+void MouseButtonCallback(GLFWwindow* window, int button, int state, int mods);
 void processInput(GLFWwindow* window);
 unsigned int loadTexture(const char* path);
 void renderSphere();
@@ -28,6 +33,7 @@ Camera camera(glm::vec3(0.0f, 0.0f, 3.0f));
 float lastX = 800.0f / 2.0;
 float lastY = 600.0 / 2.0;
 bool firstMouse = true;
+bool mouseLeft = false;
 
 // timing
 float deltaTime = 0.0f;
@@ -40,7 +46,6 @@ int main()
     glfwInit();
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
-    glfwWindowHint(GLFW_SAMPLES, 4);
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
 
 #ifdef __APPLE__
@@ -60,9 +65,8 @@ int main()
     glfwSetFramebufferSizeCallback(window, framebuffer_size_callback);
     glfwSetCursorPosCallback(window, mouse_callback);
     glfwSetScrollCallback(window, scroll_callback);
+    glfwSetMouseButtonCallback(window, MouseButtonCallback);
 
-    // tell GLFW to capture our mouse
-    glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
 
     // glad: load all OpenGL function pointers
     // ---------------------------------------
@@ -95,13 +99,27 @@ int main()
     unsigned int roughness = loadTexture("resources/textures/pbr/rusted_iron/roughness.png");
     unsigned int ao = loadTexture("resources/textures/pbr/rusted_iron/ao.png");
 
+ 	// Initialize ImGUI
+	IMGUI_CHECKVERSION();
+	ImGui::CreateContext();
+	ImGuiIO& io = ImGui::GetIO(); (void)io;
+	ImGui::StyleColorsDark();
+	ImGui_ImplGlfw_InitForOpenGL(window, true);
+	ImGui_ImplOpenGL3_Init("#version 330");
+
     // lights
     // ------
     glm::vec3 lightPositions[] = {
-        glm::vec3(0.0f, 0.0f, 10.0f),
+        glm::vec3(0.0f,  5.0f, 10.0f),
+        glm::vec3(0.0f,  -5.0f, 10.0f),
+        glm::vec3(5.0f, 0.0f, 10.0f),
+        glm::vec3(-5.0f, 0.0f, 10.0f)
     };
     glm::vec3 lightColors[] = {
-        glm::vec3(150.0f, 150.0f, 150.0f),
+        glm::vec3(300.0f, 300.0f, 300.0f),
+        glm::vec3(300.0f, 300.0f, 300.0f),
+        glm::vec3(300.0f, 300.0f, 300.0f),
+        glm::vec3(300.0f, 300.0f, 300.0f)
     };
     int nrRows = 7;
     int nrColumns = 7;
@@ -113,6 +131,7 @@ int main()
     shader.use();
     shader.setMat4("projection", projection);
 
+    bool showCylinder = true;
     // render loop
     // -----------
     while (!glfwWindowShouldClose(window))
@@ -131,6 +150,20 @@ int main()
         // ------
         glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+		ImGui_ImplOpenGL3_NewFrame();
+		ImGui_ImplGlfw_NewFrame();
+		ImGui::NewFrame();
+
+		// ImGUI window creation
+		ImGui::Begin("PBR");
+
+        if (ImGui::Button("Change geometry")) {
+            showCylinder = !showCylinder;
+        }
+
+		// Ends the window
+		ImGui::End();
 
         shader.use();
         glm::mat4 view = camera.GetViewMatrix();
@@ -182,6 +215,8 @@ int main()
             renderSphere();
         }
 
+		ImGui::Render();
+		ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
         // glfw: swap buffers and poll IO events (keys pressed/released, mouse moved etc.)
         // -------------------------------------------------------------------------------
         glfwSwapBuffers(window);
@@ -225,6 +260,7 @@ void framebuffer_size_callback(GLFWwindow* window, int width, int height)
 // -------------------------------------------------------
 void mouse_callback(GLFWwindow* window, double xposIn, double yposIn)
 {
+    if (!mouseLeft) return;
     float xpos = static_cast<float>(xposIn);
     float ypos = static_cast<float>(yposIn);
 
@@ -249,6 +285,29 @@ void mouse_callback(GLFWwindow* window, double xposIn, double yposIn)
 void scroll_callback(GLFWwindow* window, double xoffset, double yoffset)
 {
     camera.ProcessMouseScroll(static_cast<float>(yoffset));
+}
+
+void MouseButtonCallback(GLFWwindow* window, int button, int state, int mods) 
+{
+    double x, y;
+    //do not forget to pass the events to ImGUI!
+	
+	ImGuiIO& io = ImGui::GetIO();
+	io.AddMouseButtonEvent(button, state);
+	if (io.WantCaptureMouse) return; //make sure you do not call this callback when over a menu
+
+    //process them
+	if (button == GLFW_MOUSE_BUTTON_LEFT && state == GLFW_PRESS)
+	{
+		glfwGetCursorPos(window, &x, &y);
+        lastX = x;
+        lastY = y;
+		mouseLeft = true;
+	}
+	if (button == GLFW_MOUSE_BUTTON_LEFT  && state == GLFW_RELEASE)
+	{
+		mouseLeft = false;
+	}
 }
 
 // renders (and builds at first invocation) a sphere
