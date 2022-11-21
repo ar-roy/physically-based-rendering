@@ -10,6 +10,9 @@ in vec3 Normal;
 
 // material parameters
 uniform float useColor;
+uniform float ambientVal;
+uniform float useFresnelSchlick;
+uniform float f0Val;
 uniform vec3 albedoVal;
 uniform float metallicVal;
 uniform float roughnessVal;
@@ -90,7 +93,7 @@ float GeometrySmith(vec3 N, vec3 V, vec3 L, float roughness)
 // ----------------------------------------------------------------------------
 vec3 fresnelSchlick(float cosTheta, vec3 F0)
 {
-    return F0 + (1.0 - F0) * pow(clamp(1.0 - cosTheta, 0.0, 1.0), 5.0);
+    return F0 + (1.0 - F0) * pow(clamp(1.0 - cosTheta, 0.0, 1.0), 5.0) * useFresnelSchlick;
 }
 // ----------------------------------------------------------------------------
 void main()
@@ -105,7 +108,7 @@ void main()
 
     // calculate reflectance at normal incidence; if dia-electric (like plastic) use F0 
     // of 0.04 and if it's a metal, use the albedo color as F0 (metallic workflow)    
-    vec3 F0 = vec3(0.04); 
+    vec3 F0 = vec3(f0Val); 
     F0 = mix(F0, albedo, metallic);
 
     // reflectance equation
@@ -148,7 +151,7 @@ void main()
     
     // ambient lighting (note that the next IBL tutorial will replace 
     // this ambient lighting with environment lighting).
-    vec3 ambient = vec3(0.03) * albedo * ao;
+    vec3 ambient = vec3(ambientVal) * albedo * ao;
 
     vec3 color = ambient + Lo;
 

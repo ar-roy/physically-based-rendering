@@ -194,13 +194,12 @@ int main()
 		ImGui::NewFrame();
 
 		// ImGUI window creation
+        ImGui::Begin("PBR");
         static const char* texture_names[] = { "color", "gold", "grass", "plastic", "rusted", "wall" };
         static TextureProfile* texture_files[] = { nullptr, &txGold, &txGrass, &txPlastic, &txRusted, &txWall };
         static int selected_texture = 0;
         static float roughness = .2, metallic = 0.;
         static float albedo[3] = { 1., 0., 0. };
-
-		ImGui::Begin("PBR");
         ImGui::Combo("texture", &selected_texture, texture_names, IM_ARRAYSIZE(texture_names));
         if (texture_files[selected_texture]) {
             shader.setFloat("useColor", 0.);
@@ -216,6 +215,17 @@ int main()
             shader.setFloat("metallicVal", metallic);
             shader.setFloat("aoVal", 1.);
         }
+
+        float ambient = .03;
+        ImGui::SliderFloat("ambient", &ambient, 0, 0.1, "%.4f");
+        shader.setFloat("ambientVal", ambient);
+        
+        static bool fresnel_schlick = true;
+        static float fresnel0 = 0.04;
+        ImGui::Checkbox("Schlick Fresnel", &fresnel_schlick);
+        ImGui::SliderFloat("F0", &fresnel0, 0., 1., "%.4f");
+        shader.setFloat("useFresnelSchlick", fresnel_schlick ? 1. : 0.);
+        shader.setFloat("f0Val", fresnel0);
 		// Ends the window
 		ImGui::End();
 
