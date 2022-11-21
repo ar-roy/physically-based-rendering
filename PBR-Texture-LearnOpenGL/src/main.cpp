@@ -24,6 +24,37 @@ void processInput(GLFWwindow* window);
 unsigned int loadTexture(const char* path);
 void renderSphere();
 
+struct TextureProfile {
+    unsigned int albedo, normal, metallic, roughness, ao;
+
+    explicit TextureProfile(const string& path) {
+        string tmp;
+        tmp = path + "/albedo.png";
+        albedo = loadTexture(tmp.c_str());
+        tmp = path + "/normal.png";
+        normal = loadTexture(tmp.c_str());
+        tmp = path + "/metallic.png";
+        metallic = loadTexture(tmp.c_str());
+        tmp = path + "/roughness.png";
+        roughness = loadTexture(tmp.c_str());
+        tmp = path + "/ao.png";
+        ao = loadTexture(tmp.c_str());
+    }
+
+    void apply() {
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_2D, albedo);
+        glActiveTexture(GL_TEXTURE1);
+        glBindTexture(GL_TEXTURE_2D, normal);
+        glActiveTexture(GL_TEXTURE2);
+        glBindTexture(GL_TEXTURE_2D, metallic);
+        glActiveTexture(GL_TEXTURE3);
+        glBindTexture(GL_TEXTURE_2D, roughness);
+        glActiveTexture(GL_TEXTURE4);
+        glBindTexture(GL_TEXTURE_2D, ao);
+    }
+};
+
 // settings
 const unsigned int SCR_WIDTH = 1280;
 const unsigned int SCR_HEIGHT = 720;
@@ -93,11 +124,11 @@ int main()
 
     // load PBR material textures
     // --------------------------
-    unsigned int albedo = loadTexture("resources/textures/pbr/rusted_iron/albedo.png");
-    unsigned int normal = loadTexture("resources/textures/pbr/rusted_iron/normal.png");
-    unsigned int metallic = loadTexture("resources/textures/pbr/rusted_iron/metallic.png");
-    unsigned int roughness = loadTexture("resources/textures/pbr/rusted_iron/roughness.png");
-    unsigned int ao = loadTexture("resources/textures/pbr/rusted_iron/ao.png");
+    TextureProfile txGold("resources/textures/pbr/gold");
+    TextureProfile txGrass("resources/textures/pbr/grass");
+    TextureProfile txPlastic("resources/textures/pbr/plastic");
+    TextureProfile txRusted("resources/textures/pbr/rusted_iron");
+    TextureProfile txWall("resources/textures/pbr/wall");
 
  	// Initialize ImGUI
 	IMGUI_CHECKVERSION();
@@ -131,7 +162,6 @@ int main()
     shader.use();
     shader.setMat4("projection", projection);
 
-    bool showCylinder = true;
     // render loop
     // -----------
     while (!glfwWindowShouldClose(window))
@@ -155,13 +185,32 @@ int main()
 		ImGui_ImplGlfw_NewFrame();
 		ImGui::NewFrame();
 
+        bool demo_show = false;
+        ImGui::ShowDemoWindow(&demo_show);
+
 		// ImGUI window creation
 		ImGui::Begin("PBR");
-
-        if (ImGui::Button("Change geometry")) {
-            showCylinder = !showCylinder;
+        const char* textures[] = { "color", "gold", "grass", "plastic", "rusted", "wall" };
+        static int selected_texture = 3;
+        ImGui::Combo("texture", &selected_texture, textures, IM_ARRAYSIZE(textures));
+        //cout << "selected texture = " << textures[selected_texture] << endl;
+        switch (selected_texture) {
+        case 1:
+            txGold.apply();
+            break;
+        case 2:
+            txGrass.apply();
+            break;
+        case 3:
+            txPlastic.apply();
+            break;
+        case 4:
+            txRusted.apply();
+            break;
+        case 5:
+            txWall.apply();
+            break;
         }
-
 		// Ends the window
 		ImGui::End();
 
@@ -169,17 +218,6 @@ int main()
         glm::mat4 view = camera.GetViewMatrix();
         shader.setMat4("view", view);
         shader.setVec3("camPos", camera.Position);
-
-        glActiveTexture(GL_TEXTURE0);
-        glBindTexture(GL_TEXTURE_2D, albedo);
-        glActiveTexture(GL_TEXTURE1);
-        glBindTexture(GL_TEXTURE_2D, normal);
-        glActiveTexture(GL_TEXTURE2);
-        glBindTexture(GL_TEXTURE_2D, metallic);
-        glActiveTexture(GL_TEXTURE3);
-        glBindTexture(GL_TEXTURE_2D, roughness);
-        glActiveTexture(GL_TEXTURE4);
-        glBindTexture(GL_TEXTURE_2D, ao);
 
         // render rows*column number of spheres with material properties defined by textures (they all have the same material properties)
         glm::mat4 model = glm::mat4(1.0f);

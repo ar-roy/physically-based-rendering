@@ -1,4 +1,5 @@
 //Source integrated from
+//https://github.com/JoeyDeVries/LearnOpenGL/blob/master/src/6.pbr/1.1.lighting/1.1.pbr.fs
 //https://github.com/JoeyDeVries/LearnOpenGL/blob/master/src/6.pbr/1.2.lighting_textured/1.2.pbr.fs
 
 #version 330 core
@@ -8,6 +9,10 @@ in vec3 WorldPos;
 in vec3 Normal;
 
 // material parameters
+//uniform vec3 albedo;
+//uniform float metallic;
+//uniform float roughness;
+//uniform float ao;
 uniform sampler2D albedoMap;
 uniform sampler2D normalMap;
 uniform sampler2D metallicMap;
@@ -54,6 +59,7 @@ float DistributionGGX(vec3 N, vec3 H, float roughness)
     float denom = (NdotH2 * (a2 - 1.0) + 1.0);
     denom = PI * denom * denom;
 
+    //return pow(NdotH, 2./a2-2)/PI/a2;
     return nom / denom;
 }
 // ----------------------------------------------------------------------------
@@ -70,11 +76,14 @@ float GeometrySchlickGGX(float NdotV, float roughness)
 // ----------------------------------------------------------------------------
 float GeometrySmith(vec3 N, vec3 V, vec3 L, float roughness)
 {
+    vec3 H = normalize(V + L);
     float NdotV = max(dot(N, V), 0.0);
     float NdotL = max(dot(N, L), 0.0);
+    float VdotH = max(dot(V, H), 1e-5);
     float ggx2 = GeometrySchlickGGX(NdotV, roughness);
     float ggx1 = GeometrySchlickGGX(NdotL, roughness);
 
+    //return NdotV * NdotL / VdotH / VdotH;
     return ggx1 * ggx2;
 }
 // ----------------------------------------------------------------------------
@@ -84,13 +93,14 @@ vec3 fresnelSchlick(float cosTheta, vec3 F0)
 }
 // ----------------------------------------------------------------------------
 void main()
-{		
+{
     vec3 albedo     = pow(texture(albedoMap, TexCoords).rgb, vec3(2.2));
     float metallic  = texture(metallicMap, TexCoords).r;
     float roughness = texture(roughnessMap, TexCoords).r;
     float ao        = texture(aoMap, TexCoords).r;
 
     vec3 N = getNormalFromMap();
+    //vec3 N = normalize(Normal);
     vec3 V = normalize(camPos - WorldPos);
 
     // calculate reflectance at normal incidence; if dia-electric (like plastic) use F0 
@@ -127,7 +137,7 @@ void main()
         // multiply kD by the inverse metalness such that only non-metals 
         // have diffuse lighting, or a linear blend if partly metal (pure metals
         // have no diffuse light).
-        kD *= 1.0 - metallic;	  
+        kD *= 1.0 - metallic;
 
         // scale light by NdotL
         float NdotL = max(dot(N, L), 0.0);        
@@ -139,7 +149,7 @@ void main()
     // ambient lighting (note that the next IBL tutorial will replace 
     // this ambient lighting with environment lighting).
     vec3 ambient = vec3(0.03) * albedo * ao;
-    
+
     vec3 color = ambient + Lo;
 
     // HDR tonemapping
