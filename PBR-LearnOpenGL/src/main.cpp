@@ -1,3 +1,7 @@
+#include "imgui.h"
+#include "imgui_impl_glfw.h"
+#include "imgui_impl_opengl3.h"
+
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
 #include <stb_image.h>
@@ -16,9 +20,11 @@
 void framebuffer_size_callback(GLFWwindow* window, int width, int height);
 void mouse_callback(GLFWwindow* window, double xpos, double ypos);
 void scroll_callback(GLFWwindow* window, double xoffset, double yoffset);
+void MouseButtonCallback(GLFWwindow* window, int button, int state, int mods);
 void processInput(GLFWwindow* window);
 unsigned int loadTexture(const char* path);
 void renderSphere();
+void renderCylinder();
 
 // settings
 const unsigned int SCR_WIDTH = 1280;
@@ -29,10 +35,13 @@ Camera camera(glm::vec3(0.0f, 0.0f, 3.0f));
 float lastX = 800.0f / 2.0;
 float lastY = 600.0 / 2.0;
 bool firstMouse = true;
+bool mouseLeft = false;
 
 // timing
 float deltaTime = 0.0f;
 float lastFrame = 0.0f;
+
+const float PI = 3.14159265359f;
 
 int main()
 {
@@ -41,8 +50,9 @@ int main()
     glfwInit();
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
-    glfwWindowHint(GLFW_SAMPLES, 4);
+    //glfwWindowHint(GLFW_SAMPLES, 4);
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
+
 
 #ifdef __APPLE__
     glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);
@@ -61,9 +71,10 @@ int main()
     glfwSetFramebufferSizeCallback(window, framebuffer_size_callback);
     glfwSetCursorPosCallback(window, mouse_callback);
     glfwSetScrollCallback(window, scroll_callback);
+    glfwSetMouseButtonCallback(window, MouseButtonCallback);
 
     // tell GLFW to capture our mouse
-    glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+    //glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
 
     // glad: load all OpenGL function pointers
     // ---------------------------------------
@@ -83,15 +94,29 @@ int main()
 
     shader.use();
     shader.setVec3("albedo", 0.5f, 0.0f, 0.0f);
-    shader.setFloat("ao", 1.0f);
+
+ 	// Initialize ImGUI
+	IMGUI_CHECKVERSION();
+	ImGui::CreateContext();
+	ImGuiIO& io = ImGui::GetIO(); (void)io;
+	ImGui::StyleColorsDark();
+	ImGui_ImplGlfw_InitForOpenGL(window, true);
+	ImGui_ImplOpenGL3_Init("#version 330");
+
+   shader.setFloat("ao", 1.0f);
 
     // lights
     // ------
     glm::vec3 lightPositions[] = {
-        glm::vec3(-10.0f,  10.0f, 10.0f),
-        glm::vec3(10.0f,  10.0f, 10.0f),
-        glm::vec3(-10.0f, -10.0f, 10.0f),
-        glm::vec3(10.0f, -10.0f, 10.0f),
+        //glm::vec3(-10.0f,  10.0f, 10.0f),
+        //glm::vec3(10.0f,  10.0f, 10.0f),
+        //glm::vec3(-10.0f, -10.0f, 10.0f),
+        //glm::vec3(10.0f, -10.0f, 10.0f),
+
+        glm::vec3(0.0f,  5.0f, 10.0f),
+        glm::vec3(0.0f,  -5.0f, 10.0f),
+        glm::vec3(5.0f, 0.0f, 10.0f),
+        glm::vec3(-5.0f, 0.0f, 10.0f)
     };
     glm::vec3 lightColors[] = {
         glm::vec3(300.0f, 300.0f, 300.0f),
@@ -109,6 +134,9 @@ int main()
     shader.use();
     shader.setMat4("projection", projection);
 
+	float tmp[4] = {300.f/255.f, 300.f/255.f, 300.f/255.f, 1.f};
+	bool turnonlight;
+    bool showCylinder = true;
     // render loop
     // -----------
     while (!glfwWindowShouldClose(window))
@@ -128,12 +156,72 @@ int main()
         glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
+		ImGui_ImplOpenGL3_NewFrame();
+		ImGui_ImplGlfw_NewFrame();
+		ImGui::NewFrame();
+
+		// ImGUI window creation
+		ImGui::Begin("PBR");
+        /*
+		if (ImGui::SliderInt("Slices", &slices, 1, 100, "%d", 0)) {
+			BuildScene(VBO, VAO, stacks, slices); //rebuild scene if the subdivision has changed
+		}
+		if (ImGui::SliderInt("line width", &lineWidth, 1, 10, "%d", 0)) {
+			glLineWidth(lineWidth); //set the new point size if it has been changed			
+		}
+
+		if (ImGui::SliderFloat("Bulge - speed", &timeIncr, 0, 3.f, "%f", 0));
+
+		if (ImGui::Checkbox("Filled", &filled)) {
+			if (filled) glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+			else glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+		}
+        */
+        if (ImGui::Button("Change geometry")) {
+            showCylinder = !showCylinder;
+        }
+
+		//if (ImGui::Checkbox("light", &turnonlight)) {
+        //    if (!turnonlight)
+        //    {
+		//		for (int i = 0; i < 4; i++)
+		//		{
+		//			lightColors[i][0] = 0.f;
+		//			lightColors[i][1] = 0.f;
+		//			lightColors[i][2] = 0.f;
+		//		}
+        //    }
+        //    else
+        //    {
+		//		for (int i = 0; i < 4; i++)
+		//		{
+		//		lightColors[i][0] = tmp[0] * 255;
+		//		lightColors[i][1] = tmp[1] * 255;
+		//		lightColors[i][2] = tmp[2] * 255;
+		//		}
+
+        //    }
+		//}
+        //if ((ImGui::ColorEdit3("picker", tmp)) && turnonlight)
+        //{
+		//	for (int i = 0; i < 4; i++)
+		//	{
+		//		lightColors[i][0] = tmp[0] * 255;
+		//		lightColors[i][1] = tmp[1] * 255;
+		//		lightColors[i][2] = tmp[2] * 255;
+		//	}
+
+        //}
+		// Ends the window
+		ImGui::End();
+
         shader.use();
         glm::mat4 view = camera.GetViewMatrix();
         shader.setMat4("view", view);
         shader.setVec3("camPos", camera.Position);
 
         // render rows*column number of spheres with varying metallic/roughness values scaled by rows and columns respectively
+		shader.setVec3("albedo", 0.0f, 0.0f, 1.f);
         glm::mat4 model = glm::mat4(1.0f);
         for (int row = 0; row < nrRows; ++row)
         {
@@ -151,17 +239,25 @@ int main()
                     0.0f
                 ));
                 shader.setMat4("model", model);
-                renderSphere();
+                //renderSphere();
+                //renderCylinder();
+                if (showCylinder) {
+                    renderCylinder();
+                }
+                else {
+                    renderSphere();
+                }
             }
         }
 
         // render light source (simply re-render sphere at light positions)
         // this looks a bit off as we use the same shader, but it'll make their positions obvious and 
         // keeps the codeprint small.
+		shader.setVec3("albedo", 1.0f, 1.0f, 1.0f);
         for (unsigned int i = 0; i < sizeof(lightPositions) / sizeof(lightPositions[0]); ++i)
         {
             glm::vec3 newPos = lightPositions[i] + glm::vec3(sin(glfwGetTime() * 5.0) * 5.0, 0.0, 0.0);
-            newPos = lightPositions[i];
+            //newPos = lightPositions[i];
             shader.setVec3("lightPositions[" + std::to_string(i) + "]", newPos);
             shader.setVec3("lightColors[" + std::to_string(i) + "]", lightColors[i]);
 
@@ -172,6 +268,8 @@ int main()
             renderSphere();
         }
 
+		ImGui::Render();
+		ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
         // glfw: swap buffers and poll IO events (keys pressed/released, mouse moved etc.)
         // -------------------------------------------------------------------------------
         glfwSwapBuffers(window);
@@ -215,6 +313,8 @@ void framebuffer_size_callback(GLFWwindow* window, int width, int height)
 // -------------------------------------------------------
 void mouse_callback(GLFWwindow* window, double xposIn, double yposIn)
 {
+    if (!mouseLeft)
+        return;
     float xpos = static_cast<float>(xposIn);
     float ypos = static_cast<float>(yposIn);
 
@@ -241,6 +341,29 @@ void scroll_callback(GLFWwindow* window, double xoffset, double yoffset)
     camera.ProcessMouseScroll(static_cast<float>(yoffset));
 }
 
+void MouseButtonCallback(GLFWwindow* window, int button, int state, int mods) 
+{
+    double x, y;
+//do not forget to pass the events to ImGUI!
+	
+	ImGuiIO& io = ImGui::GetIO();
+	io.AddMouseButtonEvent(button, state);
+	if (io.WantCaptureMouse) return; //make sure you do not call this callback when over a menu
+
+//process them
+	if (button == GLFW_MOUSE_BUTTON_LEFT && state == GLFW_PRESS)
+	{
+		glfwGetCursorPos(window, &x, &y);
+        lastX = x;
+        lastY = y;
+		mouseLeft = true;
+	}
+	if (button == GLFW_MOUSE_BUTTON_LEFT  && state == GLFW_RELEASE)
+	{
+		mouseLeft = false;
+	}
+}
+
 // renders (and builds at first invocation) a sphere
 // -------------------------------------------------
 unsigned int sphereVAO = 0;
@@ -262,7 +385,6 @@ void renderSphere()
 
         const unsigned int X_SEGMENTS = 64;
         const unsigned int Y_SEGMENTS = 64;
-        const float PI = 3.14159265359f;
         for (unsigned int x = 0; x <= X_SEGMENTS; ++x)
         {
             for (unsigned int y = 0; y <= Y_SEGMENTS; ++y)
@@ -336,6 +458,138 @@ void renderSphere()
 
     glBindVertexArray(sphereVAO);
     glDrawElements(GL_TRIANGLE_STRIP, indexCount, GL_UNSIGNED_INT, 0);
+}
+
+// renders a cylinder 
+// -------------------------------------------------
+// util functions
+GLfloat R(glm::vec3 A, glm::vec3 B, GLfloat u) {
+	// calculate the radius of revolution
+	return A[0] + u * (B[0] - A[0]);
+}
+GLfloat Y(glm::vec3 A, glm::vec3 B, GLfloat u) {
+	// calculate the height of a vertex
+	return A[1] + u * (B[1] - A[1]);
+}
+inline glm::vec3 S(GLfloat u, GLfloat t, glm::vec3 A, glm::vec3 B)
+{
+	// The surface
+	return glm::vec3(R(A, B, u) * sin(2*PI*t), Y(A, B, u), R(A, B, u) * cos(2 * PI * t));
+}
+unsigned int cylinderVAO = 0;
+//unsigned int indexCount;
+void renderCylinder()
+{
+    if (cylinderVAO == 0)
+    {
+        glGenVertexArrays(1, &cylinderVAO);
+
+        unsigned int vbo, ebo;
+        glGenBuffers(1, &vbo);
+        glGenBuffers(1, &ebo);
+
+        std::vector<glm::vec3> positions;
+        std::vector<glm::vec2> uv;
+        std::vector<glm::vec3> normals;
+        std::vector<unsigned int> indices;
+
+        glm::vec3 A = glm::vec3(1.f, 2.f, 0.f);
+        glm::vec3 B = glm::vec3(1.f, -2.f, 0.f);
+
+        const unsigned int div = 64;
+        float step = 1.f / div;
+
+		for (int i = 0; i < div; i++) {
+			for (int j = 0; j < div; j++)
+			{
+				// j is the slice of a circle
+				//lower triangle
+                glm::vec3 p = S(i * step, j * step, A, B);
+                float xPos = p[0];
+                float yPos = p[1];
+                float zPos = p[2];
+                positions.push_back(p);
+                normals.push_back(p - glm::vec3(0.f, yPos, 0.f));
+                uv.push_back(glm::vec2(i, j));
+                
+                p = S((i + 1) * step, j * step, A, B);
+                xPos = p[0];
+                yPos = p[1];
+                zPos = p[2];
+                positions.push_back(p);
+                normals.push_back(p - glm::vec3(0.f, yPos, 0.f));
+                uv.push_back(glm::vec2(i, j));
+
+                p = S((i + 1) * step, (j + 1) * step, A, B);
+                xPos = p[0];
+                yPos = p[1];
+                zPos = p[2];
+                positions.push_back(p);
+                normals.push_back(p - glm::vec3(0.f, yPos, 0.f));
+                uv.push_back(glm::vec2(i, j));
+
+				//upper triangle
+                p = S(i * step, j * step, A, B);
+                xPos = p[0];
+                yPos = p[1];
+                zPos = p[2];
+                positions.push_back(p);
+                normals.push_back(p - glm::vec3(0.f, yPos, 0.f));
+                uv.push_back(glm::vec2(i, j));
+
+                p = S((i + 1) * step, (j + 1) * step, A, B);
+                xPos = p[0];
+                yPos = p[1];
+                zPos = p[2];
+                positions.push_back(p);
+                normals.push_back(p - glm::vec3(0.f, yPos, 0.f));
+                uv.push_back(glm::vec2(i, j));
+
+                p = S(i * step, (j + 1) * step, A, B);
+                xPos = p[0];
+                yPos = p[1];
+                zPos = p[2];
+                positions.push_back(p);
+                normals.push_back(p - glm::vec3(0.f, yPos, 0.f));
+                uv.push_back(glm::vec2(i, j));
+			}
+		}
+
+        std::vector<float> data;
+        for (unsigned int i = 0; i < positions.size(); ++i)
+        {
+            data.push_back(positions[i].x);
+            data.push_back(positions[i].y);
+            data.push_back(positions[i].z);
+            if (normals.size() > 0)
+            {
+                data.push_back(normals[i].x);
+                data.push_back(normals[i].y);
+                data.push_back(normals[i].z);
+            }
+            if (uv.size() > 0)
+            {
+                data.push_back(uv[i].x);
+                data.push_back(uv[i].y);
+            }
+        }
+        indexCount = positions.size();
+        glBindVertexArray(cylinderVAO);
+        glBindBuffer(GL_ARRAY_BUFFER, vbo);
+        glBufferData(GL_ARRAY_BUFFER, data.size() * sizeof(float), &data[0], GL_STATIC_DRAW);
+        //glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ebo);
+        //glBufferData(GL_ELEMENT_ARRAY_BUFFER, indices.size() * sizeof(unsigned int), &indices[0], GL_STATIC_DRAW);
+        unsigned int stride = (3 + 2 + 3) * sizeof(float);
+        glEnableVertexAttribArray(0);
+        glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, stride, (void*)0);
+        glEnableVertexAttribArray(1);
+        glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, stride, (void*)(3 * sizeof(float)));
+        //glEnableVertexAttribArray(2);
+        //glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, stride, (void*)(6 * sizeof(float)));
+    }
+
+    glBindVertexArray(cylinderVAO);
+    glDrawArrays(GL_TRIANGLES, 0, indexCount);
 }
 
 // utility function for loading a 2D texture from file
