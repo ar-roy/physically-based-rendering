@@ -1,3 +1,7 @@
+#include "imgui.h"
+#include "imgui_impl_glfw.h"
+#include "imgui_impl_opengl3.h"
+
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
 #include <stb_image.h>
@@ -15,9 +19,49 @@
 void framebuffer_size_callback(GLFWwindow* window, int width, int height);
 void mouse_callback(GLFWwindow* window, double xpos, double ypos);
 void scroll_callback(GLFWwindow* window, double xoffset, double yoffset);
+void MouseButtonCallback(GLFWwindow* window, int button, int state, int mods);
 void processInput(GLFWwindow* window);
 unsigned int loadTexture(const char* path);
 void renderSphere();
+
+struct TextureProfile {
+    string path;
+    bool loaded;
+    unsigned int albedo, normal, metallic, roughness, ao;
+
+    explicit TextureProfile(const string& path) : path(path), loaded(false),
+                                                  albedo(-1), normal(-1), metallic(-1), roughness(-1), ao(-1) {
+    }
+
+    void load() {
+        string tmp;
+        tmp = path + "/albedo.png";
+        albedo = loadTexture(tmp.c_str());
+        tmp = path + "/normal.png";
+        normal = loadTexture(tmp.c_str());
+        tmp = path + "/metallic.png";
+        metallic = loadTexture(tmp.c_str());
+        tmp = path + "/roughness.png";
+        roughness = loadTexture(tmp.c_str());
+        tmp = path + "/ao.png";
+        ao = loadTexture(tmp.c_str());
+        loaded = true;
+    }
+
+    void apply() {
+        if (!loaded) load();
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_2D, albedo);
+        glActiveTexture(GL_TEXTURE1);
+        glBindTexture(GL_TEXTURE_2D, normal);
+        glActiveTexture(GL_TEXTURE2);
+        glBindTexture(GL_TEXTURE_2D, metallic);
+        glActiveTexture(GL_TEXTURE3);
+        glBindTexture(GL_TEXTURE_2D, roughness);
+        glActiveTexture(GL_TEXTURE4);
+        glBindTexture(GL_TEXTURE_2D, ao);
+    }
+};
 
 // settings
 const unsigned int SCR_WIDTH = 1280;
@@ -28,6 +72,7 @@ Camera camera(glm::vec3(0.0f, 0.0f, 3.0f));
 float lastX = 800.0f / 2.0;
 float lastY = 600.0 / 2.0;
 bool firstMouse = true;
+bool mouseLeft = false;
 
 // timing
 float deltaTime = 0.0f;
@@ -40,7 +85,6 @@ int main()
     glfwInit();
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
-    glfwWindowHint(GLFW_SAMPLES, 4);
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
 
 #ifdef __APPLE__
@@ -60,9 +104,8 @@ int main()
     glfwSetFramebufferSizeCallback(window, framebuffer_size_callback);
     glfwSetCursorPosCallback(window, mouse_callback);
     glfwSetScrollCallback(window, scroll_callback);
+    glfwSetMouseButtonCallback(window, MouseButtonCallback);
 
-    // tell GLFW to capture our mouse
-    glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
 
     // glad: load all OpenGL function pointers
     // ---------------------------------------
@@ -89,19 +132,33 @@ int main()
 
     // load PBR material textures
     // --------------------------
-    unsigned int albedo = loadTexture("resources/textures/pbr/rusted_iron/albedo.png");
-    unsigned int normal = loadTexture("resources/textures/pbr/rusted_iron/normal.png");
-    unsigned int metallic = loadTexture("resources/textures/pbr/rusted_iron/metallic.png");
-    unsigned int roughness = loadTexture("resources/textures/pbr/rusted_iron/roughness.png");
-    unsigned int ao = loadTexture("resources/textures/pbr/rusted_iron/ao.png");
+    TextureProfile txGold("resources/textures/pbr/gold");
+    TextureProfile txGrass("resources/textures/pbr/grass");
+    TextureProfile txPlastic("resources/textures/pbr/plastic");
+    TextureProfile txRusted("resources/textures/pbr/rusted_iron");
+    TextureProfile txWall("resources/textures/pbr/wall");
+
+ 	// Initialize ImGUI
+	IMGUI_CHECKVERSION();
+	ImGui::CreateContext();
+	ImGuiIO& io = ImGui::GetIO(); (void)io;
+	ImGui::StyleColorsDark();
+	ImGui_ImplGlfw_InitForOpenGL(window, true);
+	ImGui_ImplOpenGL3_Init("#version 330");
 
     // lights
     // ------
     glm::vec3 lightPositions[] = {
-        glm::vec3(0.0f, 0.0f, 10.0f),
+        glm::vec3(0.0f,  10.0f, 10.0f),
+        glm::vec3(0.0f,  -10.0f, 10.0f),
+        glm::vec3(10.0f, 0.0f, 10.0f),
+        glm::vec3(-10.0f, 0.0f, 10.0f)
     };
     glm::vec3 lightColors[] = {
-        glm::vec3(150.0f, 150.0f, 150.0f),
+        glm::vec3(150.f, 150.f, 150.f),
+        glm::vec3(150.f, 150.f, 150.f),
+        glm::vec3(150.f, 150.f, 150.f),
+        glm::vec3(150.f, 150.f, 150.f)
     };
     int nrRows = 7;
     int nrColumns = 7;
@@ -132,21 +189,61 @@ int main()
         glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
+		ImGui_ImplOpenGL3_NewFrame();
+		ImGui_ImplGlfw_NewFrame();
+		ImGui::NewFrame();
+
+		// ImGUI window creation
+        ImGui::Begin("PBR");
+        static const char* texture_names[] = { "color", "gold", "grass", "plastic", "rusted", "wall" };
+        static TextureProfile* texture_files[] = { nullptr, &txGold, &txGrass, &txPlastic, &txRusted, &txWall };
+        static int selected_texture = 0;
+        static float roughness = .2, metallic = 0.;
+        static float albedo[3] = { 1., 0., 0. };
+        ImGui::Combo("texture", &selected_texture, texture_names, IM_ARRAYSIZE(texture_names));
+        if (texture_files[selected_texture]) {
+            shader.setFloat("useColor", 0.);
+            texture_files[selected_texture]->apply();
+        }
+        else {
+            ImGui::ColorEdit3("albedo", albedo);
+            ImGui::SliderFloat("roughness", &roughness, 0., 1., "%.4f");
+            ImGui::SliderFloat("metallic", &metallic, 0., 1., "%.4f");
+            shader.setFloat("useColor", 1.);
+            shader.setVec3("albedoVal", glm::vec3(albedo[0], albedo[1], albedo[2]));
+            shader.setFloat("roughnessVal", roughness);
+            shader.setFloat("metallicVal", metallic);
+            shader.setFloat("aoVal", 1.);
+        }
+
+        static float ambient = .03;
+        static bool hdr_gamma = true;
+        ImGui::Checkbox("HDR / Gamma Correction", &hdr_gamma);
+        ImGui::SliderFloat("ambient", &ambient, 0, 0.1, "%.4f");
+        shader.setFloat("ambientVal", ambient);
+        shader.setFloat("useCorrection", hdr_gamma ? 1. : 0.);
+        
+        static bool fresnel_schlick = true;
+        static float fresnel0 = 0.04;
+        ImGui::Checkbox("Schlick Fresnel", &fresnel_schlick);
+        ImGui::SliderFloat("F0", &fresnel0, 0., 1., "%.4f");
+        shader.setFloat("useFresnelSchlick", fresnel_schlick ? 1. : 0.);
+        shader.setFloat("f0Val", fresnel0);
+
+        static const char* ndf_options[] = { "GGX Trowbridge-Reitz", "Blinn-Phong", "off"};
+        static const char* geo_options[] = { "Smith Schlick-GGX", "Kelemen", "off" };
+        static int selected_ndf = 0, selected_geo = 0;
+        ImGui::Combo("Normal Distribution", &selected_ndf, ndf_options, IM_ARRAYSIZE(ndf_options));
+        ImGui::Combo("Geometry", &selected_geo, geo_options, IM_ARRAYSIZE(geo_options));
+        shader.setFloat("useNDF", selected_ndf);
+        shader.setFloat("useGeometry", selected_geo);
+		// Ends the window
+		ImGui::End();
+
         shader.use();
         glm::mat4 view = camera.GetViewMatrix();
         shader.setMat4("view", view);
         shader.setVec3("camPos", camera.Position);
-
-        glActiveTexture(GL_TEXTURE0);
-        glBindTexture(GL_TEXTURE_2D, albedo);
-        glActiveTexture(GL_TEXTURE1);
-        glBindTexture(GL_TEXTURE_2D, normal);
-        glActiveTexture(GL_TEXTURE2);
-        glBindTexture(GL_TEXTURE_2D, metallic);
-        glActiveTexture(GL_TEXTURE3);
-        glBindTexture(GL_TEXTURE_2D, roughness);
-        glActiveTexture(GL_TEXTURE4);
-        glBindTexture(GL_TEXTURE_2D, ao);
 
         // render rows*column number of spheres with material properties defined by textures (they all have the same material properties)
         glm::mat4 model = glm::mat4(1.0f);
@@ -182,10 +279,13 @@ int main()
             renderSphere();
         }
 
+		ImGui::Render();
+		ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
         // glfw: swap buffers and poll IO events (keys pressed/released, mouse moved etc.)
         // -------------------------------------------------------------------------------
         glfwSwapBuffers(window);
         glfwPollEvents();
+        Sleep(1);
     }
 
     // glfw: terminate, clearing all previously allocated GLFW resources.
@@ -225,6 +325,7 @@ void framebuffer_size_callback(GLFWwindow* window, int width, int height)
 // -------------------------------------------------------
 void mouse_callback(GLFWwindow* window, double xposIn, double yposIn)
 {
+    if (!mouseLeft) return;
     float xpos = static_cast<float>(xposIn);
     float ypos = static_cast<float>(yposIn);
 
@@ -249,6 +350,29 @@ void mouse_callback(GLFWwindow* window, double xposIn, double yposIn)
 void scroll_callback(GLFWwindow* window, double xoffset, double yoffset)
 {
     camera.ProcessMouseScroll(static_cast<float>(yoffset));
+}
+
+void MouseButtonCallback(GLFWwindow* window, int button, int state, int mods) 
+{
+    double x, y;
+    //do not forget to pass the events to ImGUI!
+	
+	ImGuiIO& io = ImGui::GetIO();
+	io.AddMouseButtonEvent(button, state);
+	if (io.WantCaptureMouse) return; //make sure you do not call this callback when over a menu
+
+    //process them
+	if (button == GLFW_MOUSE_BUTTON_LEFT && state == GLFW_PRESS)
+	{
+		glfwGetCursorPos(window, &x, &y);
+        lastX = x;
+        lastY = y;
+		mouseLeft = true;
+	}
+	if (button == GLFW_MOUSE_BUTTON_LEFT  && state == GLFW_RELEASE)
+	{
+		mouseLeft = false;
+	}
 }
 
 // renders (and builds at first invocation) a sphere
