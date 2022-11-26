@@ -23,6 +23,25 @@ void MouseButtonCallback(GLFWwindow* window, int button, int state, int mods);
 void processInput(GLFWwindow* window);
 unsigned int loadTexture(const char* path);
 void renderSphere();
+void renderCylinder();
+
+// settings
+const unsigned int SCR_WIDTH = 1280;
+const unsigned int SCR_HEIGHT = 720;
+
+// camera
+Camera camera(glm::vec3(0.0f, 0.0f, 3.0f));
+float lastX = 800.0f / 2.0;
+float lastY = 600.0 / 2.0;
+bool firstMouse = true;
+bool mouseLeft = false;
+
+// timing
+float deltaTime = 0.0f;
+float lastFrame = 0.0f;
+
+// math
+const float PI = 3.14159265359f;
 
 struct TextureProfile {
     string path;
@@ -63,20 +82,6 @@ struct TextureProfile {
     }
 };
 
-// settings
-const unsigned int SCR_WIDTH = 1280;
-const unsigned int SCR_HEIGHT = 720;
-
-// camera
-Camera camera(glm::vec3(0.0f, 0.0f, 3.0f));
-float lastX = 800.0f / 2.0;
-float lastY = 600.0 / 2.0;
-bool firstMouse = true;
-bool mouseLeft = false;
-
-// timing
-float deltaTime = 0.0f;
-float lastFrame = 0.0f;
 
 int main()
 {
@@ -195,6 +200,10 @@ int main()
 
 		// ImGUI window creation
         ImGui::Begin("PBR");
+        static const char* shapes[] = { "sphere", "cylinder", "dragon" };
+        static int selected_shape = 0;
+        ImGui::Combo("shape", &selected_shape, shapes, IM_ARRAYSIZE(shapes));
+
         static const char* texture_names[] = { "color", "gold", "grass", "plastic", "rusted", "wall" };
         static TextureProfile* texture_files[] = { nullptr, &txGold, &txGrass, &txPlastic, &txRusted, &txWall };
         static int selected_texture = 0;
@@ -258,13 +267,16 @@ int main()
                     0.0f
                 ));
                 shader.setMat4("model", model);
-                renderSphere();
+                if (selected_shape == 0) renderSphere();
+                else if (selected_shape == 1) renderCylinder();
+                // else if (selected_shape == 2) renderDragon();
             }
         }
 
         // render light source (simply re-render sphere at light positions)
         // this looks a bit off as we use the same shader, but it'll make their positions obvious and 
         // keeps the codeprint small.
+        shader.setVec3("albedoVal", glm::vec3(1., 1., 1.));
         for (unsigned int i = 0; i < sizeof(lightPositions) / sizeof(lightPositions[0]); ++i)
         {
             glm::vec3 newPos = lightPositions[i] + glm::vec3(sin(glfwGetTime() * 5.0) * 5.0, 0.0, 0.0);
@@ -396,7 +408,6 @@ void renderSphere()
 
         const unsigned int X_SEGMENTS = 64;
         const unsigned int Y_SEGMENTS = 64;
-        const float PI = 3.14159265359f;
         for (unsigned int x = 0; x <= X_SEGMENTS; ++x)
         {
             for (unsigned int y = 0; y <= Y_SEGMENTS; ++y)
@@ -470,6 +481,152 @@ void renderSphere()
 
     glBindVertexArray(sphereVAO);
     glDrawElements(GL_TRIANGLE_STRIP, indexCount, GL_UNSIGNED_INT, 0);
+}
+
+// renders a cylinder 
+// -------------------------------------------------
+// util functions
+GLfloat R(glm::vec3 A, glm::vec3 B, GLfloat u) {
+    // calculate the radius of revolution
+    return A[0] + u * (B[0] - A[0]);
+}
+GLfloat Y(glm::vec3 A, glm::vec3 B, GLfloat u) {
+    // calculate the height of a vertex
+    return A[1] + u * (B[1] - A[1]);
+}
+inline glm::vec3 S(GLfloat u, GLfloat t, glm::vec3 A, glm::vec3 B)
+{
+    // The surface
+    return glm::vec3(R(A, B, u) * sin(2 * PI * t), Y(A, B, u), R(A, B, u) * cos(2 * PI * t));
+}
+unsigned int cylinderVAO = 0;
+//unsigned int indexCount;
+void renderCylinder()
+{
+    if (cylinderVAO == 0)
+    {
+        glGenVertexArrays(1, &cylinderVAO);
+
+        unsigned int vbo, ebo;
+        glGenBuffers(1, &vbo);
+        glGenBuffers(1, &ebo);
+
+        std::vector<glm::vec3> positions;
+        std::vector<glm::vec2> uv;
+        std::vector<glm::vec3> normals;
+        std::vector<unsigned int> indices;
+
+        glm::vec3 A = glm::vec3(1.f, 2.f, 0.f);
+        glm::vec3 B = glm::vec3(1.f, -2.f, 0.f);
+
+        const unsigned int div = 64;
+        float step = 1.f / div;
+
+        for (int i = 0; i < div; i++) {
+			for (int j = 0; j < div; j++)
+			{
+                float xSegment = (float)i / (float)div;
+                float ySegment = (float)j / (float)div;
+
+				// j is the slice of a circle
+				//lower triangle
+                glm::vec3 p = S(i * step, j * step, A, B);
+                float yPos = p[1];
+                positions.push_back(p);
+                normals.push_back(p - glm::vec3(0.f, yPos, 0.f));
+                uv.push_back(glm::vec2(xSegment, ySegment));
+
+                p = S((i + 1) * step, j * step, A, B);
+                yPos = p[1];
+                positions.push_back(p);
+                normals.push_back(p - glm::vec3(0.f, yPos, 0.f));
+                uv.push_back(glm::vec2(xSegment, ySegment));
+
+                p = S((i + 1) * step, (j + 1) * step, A, B);
+                yPos = p[1];
+                positions.push_back(p);
+                normals.push_back(p - glm::vec3(0.f, yPos, 0.f));
+                uv.push_back(glm::vec2(xSegment, ySegment));
+
+				//upper triangle
+                p = S(i * step, j * step, A, B);
+                yPos = p[1];
+                positions.push_back(p);
+                normals.push_back(p - glm::vec3(0.f, yPos, 0.f));
+                uv.push_back(glm::vec2(xSegment, ySegment));
+
+                p = S((i + 1) * step, (j + 1) * step, A, B);
+                yPos = p[1];
+                positions.push_back(p);
+                normals.push_back(p - glm::vec3(0.f, yPos, 0.f));
+                uv.push_back(glm::vec2(xSegment, ySegment));
+
+                p = S(i * step, (j + 1) * step, A, B);
+                yPos = p[1];
+                positions.push_back(p);
+                normals.push_back(p - glm::vec3(0.f, yPos, 0.f));
+                uv.push_back(glm::vec2(xSegment, ySegment));
+            }
+		}
+
+        bool oddRow = false;
+        for (unsigned int y = 0; y < div; ++y)
+        {
+            if (!oddRow) // even rows: y == 0, y == 2; and so on
+            {
+                for (unsigned int x = 0; x <= div; ++x)
+                {
+                    indices.push_back(y * (div + 1) + x);
+                    indices.push_back((y + 1) * (div + 1) + x);
+                }
+            }
+            else
+            {
+                for (int x = div; x >= 0; --x)
+                {
+                    indices.push_back((y + 1) * (div + 1) + x);
+                    indices.push_back(y * (div + 1) + x);
+                }
+            }
+            oddRow = !oddRow;
+        }
+        indexCount = static_cast<unsigned int>(indices.size());
+
+        std::vector<float> data;
+        for (unsigned int i = 0; i < positions.size(); ++i)
+        {
+            data.push_back(positions[i].x);
+            data.push_back(positions[i].y);
+            data.push_back(positions[i].z);
+            if (normals.size() > 0)
+            {
+                data.push_back(normals[i].x);
+                data.push_back(normals[i].y);
+                data.push_back(normals[i].z);
+            }
+            if (uv.size() > 0)
+            {
+                data.push_back(uv[i].x);
+                data.push_back(uv[i].y);
+            }
+        }
+
+        glBindVertexArray(cylinderVAO);
+        glBindBuffer(GL_ARRAY_BUFFER, vbo);
+        glBufferData(GL_ARRAY_BUFFER, data.size() * sizeof(float), &data[0], GL_STATIC_DRAW);
+        glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ebo);
+        glBufferData(GL_ELEMENT_ARRAY_BUFFER, indices.size() * sizeof(unsigned int), &indices[0], GL_STATIC_DRAW);
+        unsigned int stride = (3 + 2 + 3) * sizeof(float);
+        glEnableVertexAttribArray(0);
+        glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, stride, (void*)0);
+        glEnableVertexAttribArray(1);
+        glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, stride, (void*)(3 * sizeof(float)));
+        glEnableVertexAttribArray(2);
+        glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, stride, (void*)(6 * sizeof(float)));
+    }
+
+    glBindVertexArray(cylinderVAO);
+    glDrawArrays(GL_TRIANGLES, 0, indexCount);
 }
 
 // utility function for loading a 2D texture from file

@@ -111,7 +111,7 @@ void main()
     float roughness = mix(texture(roughnessMap, TexCoords).r, roughnessVal, useColor);
     float ao        = mix(texture(aoMap, TexCoords).r, aoVal, useColor);
 
-    vec3 N = mix(getNormalFromMap(), normalize(Normal), useColor);
+    vec3 N = useColor == 1. ? normalize(Normal) : getNormalFromMap();
     vec3 V = normalize(camPos - WorldPos);
 
     // calculate reflectance at normal incidence; if dia-electric (like plastic) use F0 
