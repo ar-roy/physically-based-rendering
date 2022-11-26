@@ -151,6 +151,12 @@ int main()
     int  renderObj= cylinder;
 
     loadOBJ();
+    // load textures
+	unsigned int albedo = loadTexture("model/cgaxis_models_65_04_01_Albedo.png");
+    unsigned int normal = loadTexture("model/cgaxis_models_65_04_01_Normal.png");
+    unsigned int metallic = loadTexture("model/cgaxis_models_65_04_01_Metalness.png");
+    unsigned int roughness = loadTexture("model/cgaxis_models_65_04_01_Roughness.png");
+    unsigned int ao = loadTexture("model/cgaxis_models_65_04_01_AO.png");
     // render loop
     // -----------
     while (!glfwWindowShouldClose(window))
@@ -169,6 +175,20 @@ int main()
         // ------
         glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+        if (renderObj == dragon)
+        {
+			glActiveTexture(GL_TEXTURE0);
+			glBindTexture(GL_TEXTURE_2D, albedo);
+			glActiveTexture(GL_TEXTURE1);
+			glBindTexture(GL_TEXTURE_2D, normal);
+			glActiveTexture(GL_TEXTURE2);
+			glBindTexture(GL_TEXTURE_2D, metallic);
+			glActiveTexture(GL_TEXTURE3);
+			glBindTexture(GL_TEXTURE_2D, roughness);
+			glActiveTexture(GL_TEXTURE4);
+			glBindTexture(GL_TEXTURE_2D, ao);
+        }
 
 		ImGui_ImplOpenGL3_NewFrame();
 		ImGui_ImplGlfw_NewFrame();
@@ -651,7 +671,8 @@ unsigned int loadTexture(char const* path)
 bool loadOBJ()
 {
 	objl::Loader Loader;
-    bool status = Loader.LoadFile("dragon.obj");
+    //bool status = Loader.LoadFile("dragon.obj");
+    bool status = Loader.LoadFile("model/cgaxis_antique_photo_camera_65_04_blender.obj");
     if (!status)
     {
         cout << "Model not found...\n";
