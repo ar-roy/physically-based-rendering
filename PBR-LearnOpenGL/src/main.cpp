@@ -159,6 +159,7 @@ int main()
 
     enum Shape { sphere, cylinder, dragon };
     int  renderObj= cylinder;
+	bool rotateLight = true;
 
     loadOBJ();
     // render loop
@@ -221,6 +222,12 @@ int main()
         ImGui::RadioButton("sphere", &renderObj, sphere); ImGui::SameLine();
         ImGui::RadioButton("cylinder", &renderObj, cylinder); ImGui::SameLine();
         ImGui::RadioButton("dragon", &renderObj, dragon);
+
+        if (ImGui::Button("light route")) {
+            rotateLight = !rotateLight;
+        }
+
+
 		// Ends the window
 		ImGui::End();
 
@@ -286,9 +293,11 @@ int main()
             glm::vec3 newPos = lightPositions[i] + lightMoveSpeed * glm::vec3(sin(glfwGetTime() * 5.0) * 5.0, 0.0, 0.0);
             if (i < 4) {
                 newPos = lightPositions[i];
-                glm::mat4 rotateMat = glm::mat4(1.f);
-                rotateMat = glm::rotate(rotateMat, (float)glfwGetTime(), glm::vec3(0.f, 1.f, 0.f));
-                newPos = glm::vec3(rotateMat * glm::vec4(newPos, 1.f));
+                if (rotateLight) {
+                    glm::mat4 rotateMat = glm::mat4(1.f);
+                    rotateMat = glm::rotate(rotateMat, (float)glfwGetTime(), glm::vec3(0.f, 1.f, 0.f));
+                    newPos = glm::vec3(rotateMat * glm::vec4(newPos, 1.f));
+                }
             }
             //newPos = lightPositions[i];
             shader.setVec3("lightPositions[" + std::to_string(i) + "]", newPos);
