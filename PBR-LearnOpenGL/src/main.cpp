@@ -499,9 +499,12 @@ void renderCylinder()
         const unsigned int div = 64;
         float step = 1.f / div;
 
-		for (int i = 0; i < div; i++) {
-			for (int j = 0; j < div; j++)
+		for (int i = 0; i <= div; ++i) {
+			for (int j = 0; j <= div; ++j)
 			{
+                float xSegment = (float)i / (float)div;
+                float ySegment = (float)j / (float)div;
+
 				// j is the slice of a circle
 				//lower triangle
                 glm::vec3 p = S(i * step, j * step, A, B);
@@ -510,15 +513,15 @@ void renderCylinder()
                 float zPos = p[2];
                 positions.push_back(p);
                 normals.push_back(p - glm::vec3(0.f, yPos, 0.f));
-                uv.push_back(glm::vec2(i, j));
-                
+                uv.push_back(glm::vec2(xSegment, ySegment));
+
                 p = S((i + 1) * step, j * step, A, B);
                 xPos = p[0];
                 yPos = p[1];
                 zPos = p[2];
                 positions.push_back(p);
                 normals.push_back(p - glm::vec3(0.f, yPos, 0.f));
-                uv.push_back(glm::vec2(i, j));
+                uv.push_back(glm::vec2(xSegment, ySegment));
 
                 p = S((i + 1) * step, (j + 1) * step, A, B);
                 xPos = p[0];
@@ -526,7 +529,7 @@ void renderCylinder()
                 zPos = p[2];
                 positions.push_back(p);
                 normals.push_back(p - glm::vec3(0.f, yPos, 0.f));
-                uv.push_back(glm::vec2(i, j));
+                uv.push_back(glm::vec2(xSegment, ySegment));
 
 				//upper triangle
                 p = S(i * step, j * step, A, B);
@@ -535,7 +538,7 @@ void renderCylinder()
                 zPos = p[2];
                 positions.push_back(p);
                 normals.push_back(p - glm::vec3(0.f, yPos, 0.f));
-                uv.push_back(glm::vec2(i, j));
+                uv.push_back(glm::vec2(xSegment, ySegment));
 
                 p = S((i + 1) * step, (j + 1) * step, A, B);
                 xPos = p[0];
@@ -543,7 +546,7 @@ void renderCylinder()
                 zPos = p[2];
                 positions.push_back(p);
                 normals.push_back(p - glm::vec3(0.f, yPos, 0.f));
-                uv.push_back(glm::vec2(i, j));
+                uv.push_back(glm::vec2(xSegment, ySegment));
 
                 p = S(i * step, (j + 1) * step, A, B);
                 xPos = p[0];
@@ -551,9 +554,32 @@ void renderCylinder()
                 zPos = p[2];
                 positions.push_back(p);
                 normals.push_back(p - glm::vec3(0.f, yPos, 0.f));
-                uv.push_back(glm::vec2(i, j));
-			}
+                uv.push_back(glm::vec2(xSegment, ySegment));
+            }
 		}
+
+        bool oddRow = false;
+        for (unsigned int y = 0; y < div; ++y)
+        {
+            if (!oddRow) // even rows: y == 0, y == 2; and so on
+            {
+                for (unsigned int x = 0; x <= div; ++x)
+                {
+                    indices.push_back(y * (div + 1) + x);
+                    indices.push_back((y + 1) * (div + 1) + x);
+                }
+            }
+            else
+            {
+                for (int x = div; x >= 0; --x)
+                {
+                    indices.push_back((y + 1) * (div + 1) + x);
+                    indices.push_back(y * (div + 1) + x);
+                }
+            }
+            oddRow = !oddRow;
+        }
+        indexCount = static_cast<unsigned int>(indices.size());
 
         std::vector<float> data;
         for (unsigned int i = 0; i < positions.size(); ++i)
@@ -573,19 +599,19 @@ void renderCylinder()
                 data.push_back(uv[i].y);
             }
         }
-        indexCount = positions.size();
+
         glBindVertexArray(cylinderVAO);
         glBindBuffer(GL_ARRAY_BUFFER, vbo);
         glBufferData(GL_ARRAY_BUFFER, data.size() * sizeof(float), &data[0], GL_STATIC_DRAW);
-        //glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ebo);
-        //glBufferData(GL_ELEMENT_ARRAY_BUFFER, indices.size() * sizeof(unsigned int), &indices[0], GL_STATIC_DRAW);
+        glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ebo);
+        glBufferData(GL_ELEMENT_ARRAY_BUFFER, indices.size() * sizeof(unsigned int), &indices[0], GL_STATIC_DRAW);
         unsigned int stride = (3 + 2 + 3) * sizeof(float);
         glEnableVertexAttribArray(0);
         glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, stride, (void*)0);
         glEnableVertexAttribArray(1);
         glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, stride, (void*)(3 * sizeof(float)));
-        //glEnableVertexAttribArray(2);
-        //glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, stride, (void*)(6 * sizeof(float)));
+        glEnableVertexAttribArray(2);
+        glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, stride, (void*)(6 * sizeof(float)));
     }
 
     glBindVertexArray(cylinderVAO);
