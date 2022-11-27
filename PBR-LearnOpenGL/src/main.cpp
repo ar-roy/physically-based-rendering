@@ -51,11 +51,13 @@ std::vector<glm::vec3> loadedModelPos;
 std::vector<glm::vec2> loadedModelUv;
 std::vector<glm::vec3> loadedModelNormals;
 
+enum Shape { sphere, cylinder, dragon };
+enum LightMoveOptions { moveSet0, moveSet1, moveSet2 };
+
 // light source related
 float lightZ = 10.f;
 float lightD = 2.5f;
 float lightMoveSpeed = 2.f;
-
 
 int main()
 {
@@ -157,8 +159,8 @@ int main()
 	bool turnonlight = true;
     bool showCylinder = true;
 
-    enum Shape { sphere, cylinder, dragon };
     int  renderObj= cylinder;
+    int  lightMoveSet = moveSet0;
 	bool rotateLight = true;
 
     loadOBJ();
@@ -191,7 +193,7 @@ int main()
 		if (ImGui::Checkbox("light", &turnonlight)) {
             if (!turnonlight)
             {
-				for (int i = 0; i < 4; i++)
+				for (int i = 0; i < 8; i++)
 				{
 					lightColors[i][0] = 0.f;
 					lightColors[i][1] = 0.f;
@@ -200,7 +202,7 @@ int main()
             }
             else
             {
-				for (int i = 0; i < 4; i++)
+				for (int i = 0; i < 8; i++)
 				{
 				lightColors[i][0] = tmp[0] * 255;
 				lightColors[i][1] = tmp[1] * 255;
@@ -211,7 +213,7 @@ int main()
 		}
         if ((ImGui::ColorEdit3("light color", tmp)) && turnonlight)
         {
-			for (int i = 0; i < 4; i++)
+			for (int i = 0; i < 8; i++)
 			{
 				lightColors[i][0] = tmp[0] * 255;
 				lightColors[i][1] = tmp[1] * 255;
@@ -223,10 +225,17 @@ int main()
         ImGui::RadioButton("cylinder", &renderObj, cylinder); ImGui::SameLine();
         ImGui::RadioButton("dragon", &renderObj, dragon);
 
-        if (ImGui::Button("light route")) {
-            rotateLight = !rotateLight;
-        }
+        ImGui::RadioButton("fixed", &lightMoveSet, moveSet0); ImGui::SameLine();
+        ImGui::RadioButton("move set 1", &lightMoveSet, moveSet1); ImGui::SameLine();
+        ImGui::RadioButton("move set 2", &lightMoveSet, moveSet2);
 
+        ImGui::SliderFloat("light source move speed", &lightMoveSpeed, 0.f, 5.f);
+
+        if (ImGui::SliderFloat("light depth", &lightZ, 2.f, 10.f)) {
+            for (int i = 0; i < 8; ++i) {
+                lightPositions[i][2] = lightZ;
+            }
+        }
 
 		// Ends the window
 		ImGui::End();
@@ -274,13 +283,6 @@ int main()
                 else if (renderObj == sphere){
                     renderSphere();
                 }
-                /*
-				if (showCylinder) {
-
-                } else {
-                    renderSphere();
-                }
-                */
             }
         }
 
@@ -290,16 +292,28 @@ int main()
 		shader.setVec3("albedo", 1.0f, 1.0f, 1.0f);
         for (unsigned int i = 0; i < sizeof(lightPositions) / sizeof(lightPositions[0]); ++i)
         {
-            glm::vec3 newPos = lightPositions[i] + lightMoveSpeed * glm::vec3(sin(glfwGetTime() * 5.0) * 5.0, 0.0, 0.0);
-            if (i < 4) {
-                newPos = lightPositions[i];
-                if (rotateLight) {
-                    glm::mat4 rotateMat = glm::mat4(1.f);
-                    rotateMat = glm::rotate(rotateMat, (float)glfwGetTime(), glm::vec3(0.f, 1.f, 0.f));
-                    newPos = glm::vec3(rotateMat * glm::vec4(newPos, 1.f));
+            glm::vec3 newPos = lightPositions[i];
+            if (lightMoveSet == moveSet1) {
+                if (i >= 4) {
+                    newPos = lightPositions[i] + lightMoveSpeed * glm::vec3(sin(glfwGetTime() * 5.0) * 5.0, 0.0, 0.0);
+                }
+                else {
+					glm::mat4 rotateMat = glm::mat4(1.f);
+					rotateMat = glm::rotate(rotateMat, (float)glfwGetTime() * lightMoveSpeed, glm::vec3(0.f, 1.f, 0.f));
+					newPos = glm::vec3(rotateMat * glm::vec4(newPos, 1.f));
                 }
             }
-            //newPos = lightPositions[i];
+            else if (lightMoveSet == moveSet2) {
+                if (i >= 4) {
+                    newPos = lightPositions[i] + lightMoveSpeed * glm::vec3(0.0, sin(glfwGetTime() * 5.0) * 5.0, 0.0);
+                }
+                else {
+					glm::mat4 rotateMat = glm::mat4(1.f);
+					rotateMat = glm::rotate(rotateMat, (float)glfwGetTime() * lightMoveSpeed, glm::vec3(1.f, 0.f, 0.f));
+					newPos = glm::vec3(rotateMat * glm::vec4(newPos, 1.f));
+                }
+            }
+
             shader.setVec3("lightPositions[" + std::to_string(i) + "]", newPos);
             shader.setVec3("lightColors[" + std::to_string(i) + "]", lightColors[i]);
 
@@ -316,6 +330,7 @@ int main()
         // -------------------------------------------------------------------------------
         glfwSwapBuffers(window);
         glfwPollEvents();
+        Sleep(1);
     }
 
     // glfw: terminate, clearing all previously allocated GLFW resources.
