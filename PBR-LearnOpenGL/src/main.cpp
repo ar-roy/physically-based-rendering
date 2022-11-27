@@ -1,3 +1,4 @@
+#include "OBJ_Loader.h"
 #include "imgui.h"
 #include "imgui_impl_glfw.h"
 #include "imgui_impl_opengl3.h"
@@ -25,6 +26,8 @@ void processInput(GLFWwindow* window);
 unsigned int loadTexture(const char* path);
 void renderSphere();
 void renderCylinder();
+void renderCustomModel();
+bool loadOBJ();
 
 // settings
 const unsigned int SCR_WIDTH = 1280;
@@ -42,6 +45,12 @@ float deltaTime = 0.0f;
 float lastFrame = 0.0f;
 
 const float PI = 3.14159265359f;
+
+// custome model
+std::vector<glm::vec3> loadedModelPos;
+std::vector<glm::vec2> loadedModelUv;
+std::vector<glm::vec3> loadedModelNormals;
+
 
 int main()
 {
@@ -135,8 +144,19 @@ int main()
     shader.setMat4("projection", projection);
 
 	float tmp[4] = {300.f/255.f, 300.f/255.f, 300.f/255.f, 1.f};
-	bool turnonlight;
+	bool turnonlight = true;
     bool showCylinder = true;
+
+    enum Shape { sphere, cylinder, dragon };
+    int  renderObj= cylinder;
+
+    loadOBJ();
+    // load textures
+	unsigned int albedo = loadTexture("model/cgaxis_models_65_04_01_Albedo.png");
+    unsigned int normal = loadTexture("model/cgaxis_models_65_04_01_Normal.png");
+    unsigned int metallic = loadTexture("model/cgaxis_models_65_04_01_Metalness.png");
+    unsigned int roughness = loadTexture("model/cgaxis_models_65_04_01_Roughness.png");
+    unsigned int ao = loadTexture("model/cgaxis_models_65_04_01_AO.png");
     // render loop
     // -----------
     while (!glfwWindowShouldClose(window))
@@ -156,62 +176,61 @@ int main()
         glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
+        if (renderObj == dragon)
+        {
+			glActiveTexture(GL_TEXTURE0);
+			glBindTexture(GL_TEXTURE_2D, albedo);
+			glActiveTexture(GL_TEXTURE1);
+			glBindTexture(GL_TEXTURE_2D, normal);
+			glActiveTexture(GL_TEXTURE2);
+			glBindTexture(GL_TEXTURE_2D, metallic);
+			glActiveTexture(GL_TEXTURE3);
+			glBindTexture(GL_TEXTURE_2D, roughness);
+			glActiveTexture(GL_TEXTURE4);
+			glBindTexture(GL_TEXTURE_2D, ao);
+        }
+
 		ImGui_ImplOpenGL3_NewFrame();
 		ImGui_ImplGlfw_NewFrame();
 		ImGui::NewFrame();
 
 		// ImGUI window creation
 		ImGui::Begin("PBR");
-        /*
-		if (ImGui::SliderInt("Slices", &slices, 1, 100, "%d", 0)) {
-			BuildScene(VBO, VAO, stacks, slices); //rebuild scene if the subdivision has changed
-		}
-		if (ImGui::SliderInt("line width", &lineWidth, 1, 10, "%d", 0)) {
-			glLineWidth(lineWidth); //set the new point size if it has been changed			
-		}
 
-		if (ImGui::SliderFloat("Bulge - speed", &timeIncr, 0, 3.f, "%f", 0));
+		if (ImGui::Checkbox("light", &turnonlight)) {
+            if (!turnonlight)
+            {
+				for (int i = 0; i < 4; i++)
+				{
+					lightColors[i][0] = 0.f;
+					lightColors[i][1] = 0.f;
+					lightColors[i][2] = 0.f;
+				}
+            }
+            else
+            {
+				for (int i = 0; i < 4; i++)
+				{
+				lightColors[i][0] = tmp[0] * 255;
+				lightColors[i][1] = tmp[1] * 255;
+				lightColors[i][2] = tmp[2] * 255;
+				}
 
-		if (ImGui::Checkbox("Filled", &filled)) {
-			if (filled) glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
-			else glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+            }
 		}
-        */
-        if (ImGui::Button("Change geometry")) {
-            showCylinder = !showCylinder;
+        if ((ImGui::ColorEdit3("light color", tmp)) && turnonlight)
+        {
+			for (int i = 0; i < 4; i++)
+			{
+				lightColors[i][0] = tmp[0] * 255;
+				lightColors[i][1] = tmp[1] * 255;
+				lightColors[i][2] = tmp[2] * 255;
+			}
+
         }
-
-		//if (ImGui::Checkbox("light", &turnonlight)) {
-        //    if (!turnonlight)
-        //    {
-		//		for (int i = 0; i < 4; i++)
-		//		{
-		//			lightColors[i][0] = 0.f;
-		//			lightColors[i][1] = 0.f;
-		//			lightColors[i][2] = 0.f;
-		//		}
-        //    }
-        //    else
-        //    {
-		//		for (int i = 0; i < 4; i++)
-		//		{
-		//		lightColors[i][0] = tmp[0] * 255;
-		//		lightColors[i][1] = tmp[1] * 255;
-		//		lightColors[i][2] = tmp[2] * 255;
-		//		}
-
-        //    }
-		//}
-        //if ((ImGui::ColorEdit3("picker", tmp)) && turnonlight)
-        //{
-		//	for (int i = 0; i < 4; i++)
-		//	{
-		//		lightColors[i][0] = tmp[0] * 255;
-		//		lightColors[i][1] = tmp[1] * 255;
-		//		lightColors[i][2] = tmp[2] * 255;
-		//	}
-
-        //}
+        ImGui::RadioButton("sphere", &renderObj, sphere); ImGui::SameLine();
+        ImGui::RadioButton("cylinder", &renderObj, cylinder); ImGui::SameLine();
+        ImGui::RadioButton("dragon", &renderObj, dragon);
 		// Ends the window
 		ImGui::End();
 
@@ -220,6 +239,16 @@ int main()
         shader.setMat4("view", view);
         shader.setVec3("camPos", camera.Position);
 
+        if (renderObj == dragon)
+        {
+            nrRows = 1;
+            nrColumns = 1;
+        }
+        else {
+            nrRows = 7;
+            nrColumns = 7;
+
+        }
         // render rows*column number of spheres with varying metallic/roughness values scaled by rows and columns respectively
 		shader.setVec3("albedo", 0.0f, 0.0f, 1.f);
         glm::mat4 model = glm::mat4(1.0f);
@@ -239,14 +268,22 @@ int main()
                     0.0f
                 ));
                 shader.setMat4("model", model);
-                //renderSphere();
-                //renderCylinder();
-                if (showCylinder) {
+				if (renderObj == cylinder) {
                     renderCylinder();
                 }
-                else {
+                else if (renderObj == dragon) {
+                    renderCustomModel();
+                }
+                else if (renderObj == sphere){
                     renderSphere();
                 }
+                /*
+				if (showCylinder) {
+
+                } else {
+                    renderSphere();
+                }
+                */
             }
         }
 
@@ -655,4 +692,83 @@ unsigned int loadTexture(char const* path)
     }
 
     return textureID;
+}
+
+bool loadOBJ()
+{
+	objl::Loader Loader;
+    //bool status = Loader.LoadFile("dragon.obj");
+    bool status = Loader.LoadFile("model/cgaxis_antique_photo_camera_65_04_blender.obj");
+    if (!status)
+    {
+        cout << "Model not found...\n";
+        exit(1);
+    }
+    Loader.LoadedMeshes[0].Vertices[0].Position;
+    objl::Mesh model = Loader.LoadedMeshes[0];
+    for (int i = 0; i < model.Vertices.size(); i++)
+	{
+        objl::Vector3 pos = model.Vertices[i].Position;
+        objl::Vector2 uv = model.Vertices[i].TextureCoordinate;
+        objl::Vector3 normal = model.Vertices[i].Normal;
+        loadedModelPos.push_back(glm::vec3(pos.X, pos.Y, pos.Z));
+        loadedModelUv.push_back(glm::vec2(uv.X, uv.Y));
+        loadedModelNormals.push_back(glm::vec3(normal.X, normal.Y, normal.Z));
+	}
+
+    return true;
+}
+
+unsigned int modelVAO = 0, modelVBO = 0;
+// render third party model
+void renderCustomModel()
+{
+	glGenVertexArrays(1, &modelVAO);
+
+	//unsigned int vbo, ebo;
+	glGenBuffers(1, &modelVBO);
+	//glGenBuffers(1, &ebo);
+
+	std::vector<glm::vec3> positions = loadedModelPos;
+	std::vector<glm::vec2> uv = loadedModelUv;
+	std::vector<glm::vec3> normals = loadedModelNormals;
+	//std::vector<unsigned int> indices;
+
+	//indexCount = static_cast<unsigned int>(indices.size());
+
+	std::vector<float> data;
+	for (unsigned int i = 0; i < positions.size(); ++i)
+	{
+		data.push_back(positions[i].x);
+		data.push_back(positions[i].y);
+		data.push_back(positions[i].z);
+		if (normals.size() > 0)
+		{
+			data.push_back(normals[i].x);
+			data.push_back(normals[i].y);
+			data.push_back(normals[i].z);
+		}
+		if (uv.size() > 0)
+		{
+			data.push_back(uv[i].x);
+			data.push_back(uv[i].y);
+		}
+	}
+    //cout << "size" << uv.size() << " " << normals.size() << " " << positions.size() << "\n";
+	glBindVertexArray(modelVAO);
+	glBindBuffer(GL_ARRAY_BUFFER, modelVBO);
+	glBufferData(GL_ARRAY_BUFFER, data.size() * sizeof(float), &data[0], GL_STATIC_DRAW);
+	//glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ebo);
+	//glBufferData(GL_ELEMENT_ARRAY_BUFFER, positions.size() * sizeof(unsigned int), &indices[0], GL_STATIC_DRAW);
+	unsigned int stride = (3 + 2 + 3) * sizeof(float);
+	glEnableVertexAttribArray(0);
+	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, stride, (void*)0);
+	glEnableVertexAttribArray(1);
+	glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, stride, (void*)(3 * sizeof(float)));
+	glEnableVertexAttribArray(2);
+	glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, stride, (void*)(6 * sizeof(float)));
+
+    glBindVertexArray(modelVAO);
+    //glDrawElements(GL_POINTS, data.size()/3, 0, 0);
+    glDrawArrays(GL_TRIANGLES, 0, data.size()/3);
 }

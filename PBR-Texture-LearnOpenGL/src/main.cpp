@@ -1,4 +1,5 @@
 #include "imgui.h"
+#include "OBJ_Loader.h"
 #include "imgui_impl_glfw.h"
 #include "imgui_impl_opengl3.h"
 
@@ -24,6 +25,8 @@ void processInput(GLFWwindow* window);
 unsigned int loadTexture(const char* path);
 void renderSphere();
 void renderCylinder();
+bool loadOBJ();
+void renderCustomModel();
 
 // settings
 const unsigned int SCR_WIDTH = 1280;
@@ -42,6 +45,10 @@ float lastFrame = 0.0f;
 
 // math
 const float PI = 3.14159265359f;
+
+std::vector<glm::vec3> loadedModelPos;
+std::vector<glm::vec2> loadedModelUv;
+std::vector<glm::vec3> loadedModelNormals;
 
 struct TextureProfile {
     string path;
@@ -142,6 +149,7 @@ int main()
     TextureProfile txPlastic("resources/textures/pbr/plastic");
     TextureProfile txRusted("resources/textures/pbr/rusted_iron");
     TextureProfile txWall("resources/textures/pbr/wall");
+    TextureProfile txCamera("model/kcar");
 
  	// Initialize ImGUI
 	IMGUI_CHECKVERSION();
@@ -153,6 +161,9 @@ int main()
 
     // lights
     // ------
+    // light color
+	float tmp[4] = {300.f/255.f, 300.f/255.f, 300.f/255.f, 1.f};
+	bool turnonlight = true;
     glm::vec3 lightPositions[] = {
         glm::vec3(0.0f,  10.0f, 10.0f),
         glm::vec3(0.0f,  -10.0f, 10.0f),
@@ -174,7 +185,11 @@ int main()
     glm::mat4 projection = glm::perspective(glm::radians(camera.Zoom), (float)SCR_WIDTH / (float)SCR_HEIGHT, 0.1f, 100.0f);
     shader.use();
     shader.setMat4("projection", projection);
+    enum Shape { sphere, cylinder, custome };
+    int  renderObj= sphere;
 
+    loadOBJ();
+    glDisable(GL_CULL_FACE);
     // render loop
     // -----------
     while (!glfwWindowShouldClose(window))
@@ -211,7 +226,10 @@ int main()
         static float albedo[3] = { 1., 0., 0. };
         static bool gradient = true;
         ImGui::Combo("texture", &selected_texture, texture_names, IM_ARRAYSIZE(texture_names));
-        if (texture_files[selected_texture]) {
+        if (renderObj == custome) {
+            txCamera.apply();
+        }
+        else if (texture_files[selected_texture]) {
             shader.setFloat("useColor", 0.);
             gradient = false;
             texture_files[selected_texture]->apply();
@@ -255,6 +273,40 @@ int main()
         shader.setFloat("useFresnelSchlick", 1. - selected_fn);
         shader.setFloat("useNDF", selected_ndf);
         shader.setFloat("useGeometry", selected_geo);
+        ImGui::RadioButton("sphere", &renderObj, sphere); ImGui::SameLine();
+        ImGui::RadioButton("custome", &renderObj, custome);
+		if (ImGui::Checkbox("light", &turnonlight)) {
+            if (!turnonlight)
+            {
+				for (int i = 0; i < 4; i++)
+				{
+					lightColors[i][0] = 0.f;
+					lightColors[i][1] = 0.f;
+					lightColors[i][2] = 0.f;
+				}
+            }
+            else
+            {
+				for (int i = 0; i < 4; i++)
+				{
+				lightColors[i][0] = tmp[0] * 255;
+				lightColors[i][1] = tmp[1] * 255;
+				lightColors[i][2] = tmp[2] * 255;
+				}
+
+            }
+		}
+        if ((ImGui::ColorEdit3("light color", tmp)) && turnonlight)
+        {
+			for (int i = 0; i < 4; i++)
+			{
+				lightColors[i][0] = tmp[0] * 255;
+				lightColors[i][1] = tmp[1] * 255;
+				lightColors[i][2] = tmp[2] * 255;
+			}
+
+        }
+
 		// Ends the window
 		ImGui::End();
 
@@ -262,6 +314,15 @@ int main()
         glm::mat4 view = camera.GetViewMatrix();
         shader.setMat4("view", view);
         shader.setVec3("camPos", camera.Position);
+                if (renderObj == custome)
+        {
+            nrRows = 1;
+            nrColumns = 1;
+        }
+        else {
+            nrRows = 7;
+            nrColumns = 7;
+        }
 
         // render rows*column number of spheres with material properties defined by textures (they all have the same material properties)
         glm::mat4 model = glm::mat4(1.0f);
@@ -278,9 +339,15 @@ int main()
                     0.0f
                 ));
                 shader.setMat4("model", model);
-                if (selected_shape == 0) renderSphere();
-                else if (selected_shape == 1) renderCylinder();
-                // else if (selected_shape == 2) renderDragon();
+                if (renderObj == custome) {
+                    renderCustomModel();
+                }
+                if (renderObj == cylinder) {
+                    renderCylinder();
+                }
+                else if (renderObj == sphere){
+                    renderSphere();
+                }
             }
         }
 
@@ -325,13 +392,13 @@ void processInput(GLFWwindow* window)
         glfwSetWindowShouldClose(window, true);
 
     if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS)
-        camera.ProcessKeyboard(FORWARD, deltaTime);
+        camera.ProcessKeyboard(FORWARD, deltaTime*2);
     if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS)
-        camera.ProcessKeyboard(BACKWARD, deltaTime);
+        camera.ProcessKeyboard(BACKWARD, deltaTime*2);
     if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS)
-        camera.ProcessKeyboard(LEFT, deltaTime);
+        camera.ProcessKeyboard(LEFT, deltaTime*2);
     if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS)
-        camera.ProcessKeyboard(RIGHT, deltaTime);
+        camera.ProcessKeyboard(RIGHT, deltaTime*2);
 }
 
 // glfw: whenever the window size changed (by OS or user resize) this callback function executes
@@ -677,4 +744,102 @@ unsigned int loadTexture(char const* path)
     }
 
     return textureID;
+}
+
+bool loadOBJ()
+{
+	objl::Loader Loader;
+
+    std::string objfile("model/kcar/kcar.obj");
+    /* const std::string path("model/plane"); */
+
+    /*  boost::filesystem::path dir(path); */
+    /* if(boost::filesystem::exists(path) && boost::filesystem::is_directory(path)) */
+    /* { */
+    /*      boost::filesystem::directory_iterator it(path); */
+    /*         boost::filesystem::directory_iterator endit; */
+    /*         while (it != endit) { */
+    /*             if(boost::filesystem::is_regular_file(*it) && (extension=="")?true:it->path().extension() == extension) { */
+    /*                 objfile = it->path().string(); */
+    /*                 break; */
+    /*             } */
+    /*             ++it; */
+    /*         } */
+
+    /* } */
+    bool status = Loader.LoadFile(objfile);
+
+
+    if (!status)
+    {
+        cout << "Model not found...\n";
+        exit(1);
+    }
+    Loader.LoadedMeshes[0].Vertices[0].Position;
+    objl::Mesh model = Loader.LoadedMeshes[0];
+    for (int i = 0; i < model.Vertices.size(); i++)
+	{
+        objl::Vector3 pos = model.Vertices[i].Position;
+        objl::Vector2 uv = model.Vertices[i].TextureCoordinate;
+        objl::Vector3 normal = model.Vertices[i].Normal;
+        loadedModelPos.push_back(glm::vec3(pos.X, pos.Y, pos.Z));
+        loadedModelUv.push_back(glm::vec2(uv.X, 1.f - uv.Y));
+        loadedModelNormals.push_back(glm::vec3(normal.X, normal.Y, normal.Z));
+	}
+
+    return true;
+}
+
+unsigned int modelVAO = 0, modelVBO = 0;
+// render third party model
+void renderCustomModel()
+{
+	glGenVertexArrays(1, &modelVAO);
+
+	//unsigned int vbo, ebo;
+	glGenBuffers(1, &modelVBO);
+	//glGenBuffers(1, &ebo);
+
+	std::vector<glm::vec3> positions = loadedModelPos;
+	std::vector<glm::vec2> uv = loadedModelUv;
+	std::vector<glm::vec3> normals = loadedModelNormals;
+	//std::vector<unsigned int> indices;
+
+	//indexCount = static_cast<unsigned int>(indices.size());
+
+	std::vector<float> data;
+	for (unsigned int i = 0; i < positions.size(); ++i)
+	{
+		data.push_back(positions[i].x);
+		data.push_back(positions[i].y);
+		data.push_back(positions[i].z);
+		if (normals.size() > 0)
+		{
+			data.push_back(normals[i].x);
+			data.push_back(normals[i].y);
+			data.push_back(normals[i].z);
+		}
+		if (uv.size() > 0)
+		{
+			data.push_back(uv[i].x);
+			data.push_back(uv[i].y);
+		}
+	}
+    //cout << "size" << uv.size() << " " << normals.size() << " " << positions.size() << "\n";
+	glBindVertexArray(modelVAO);
+	glBindBuffer(GL_ARRAY_BUFFER, modelVBO);
+	glBufferData(GL_ARRAY_BUFFER, data.size() * sizeof(float), &data[0], GL_STATIC_DRAW);
+	//glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ebo);
+	//glBufferData(GL_ELEMENT_ARRAY_BUFFER, positions.size() * sizeof(unsigned int), &indices[0], GL_STATIC_DRAW);
+	unsigned int stride = (3 + 2 + 3) * sizeof(float);
+	glEnableVertexAttribArray(0);
+	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, stride, (void*)0);
+	glEnableVertexAttribArray(1);
+	glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, stride, (void*)(3 * sizeof(float)));
+	glEnableVertexAttribArray(2);
+	glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, stride, (void*)(6 * sizeof(float)));
+
+    glBindVertexArray(modelVAO);
+    //glDrawElements(GL_POINTS, data.size()/3, 0, 0);
+    glDrawArrays(GL_TRIANGLE_STRIP, 0, data.size()/3);
 }
