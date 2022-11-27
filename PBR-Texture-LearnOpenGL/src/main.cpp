@@ -49,6 +49,11 @@ const float PI = 3.14159265359f;
 std::vector<glm::vec3> loadedModelPos;
 std::vector<glm::vec2> loadedModelUv;
 std::vector<glm::vec3> loadedModelNormals;
+// light source related
+enum LightMoveOptions { moveSet0, moveSet1, moveSet2 };
+float lightZ = 10.f;
+float lightD = 2.5f;
+float lightMoveSpeed = 2.f;
 
 struct TextureProfile {
     string path;
@@ -165,17 +170,31 @@ int main()
 	float tmp[4] = {300.f/255.f, 300.f/255.f, 300.f/255.f, 1.f};
 	bool turnonlight = true;
     glm::vec3 lightPositions[] = {
-        glm::vec3(0.0f,  10.0f, 10.0f),
-        glm::vec3(0.0f,  -10.0f, 10.0f),
-        glm::vec3(10.0f, 0.0f, 10.0f),
-        glm::vec3(-10.0f, 0.0f, 10.0f)
+        glm::vec3(lightD, lightD, lightZ),
+        glm::vec3(lightD, -lightD, lightZ),
+        glm::vec3(-lightD, lightD, lightZ),
+        glm::vec3(-lightD, -lightD, lightZ),
+        
+        glm::vec3(0.0f,  2.f*lightD, lightZ),
+        glm::vec3(0.0f, -2.f*lightD, lightZ),
+        glm::vec3(2.f*lightD,  0.0f, lightZ),
+        glm::vec3(-2.f*lightD, 0.0f, lightZ)
     };
     glm::vec3 lightColors[] = {
-        glm::vec3(150.f, 150.f, 150.f),
-        glm::vec3(150.f, 150.f, 150.f),
-        glm::vec3(150.f, 150.f, 150.f),
-        glm::vec3(150.f, 150.f, 150.f)
+        glm::vec3(300.0f, 300.0f, 300.0f),
+        glm::vec3(300.0f, 300.0f, 300.0f),
+        glm::vec3(300.0f, 300.0f, 300.0f),
+        glm::vec3(300.0f, 300.0f, 300.0f),
+
+        glm::vec3(300.0f, 300.0f, 300.0f),
+        glm::vec3(300.0f, 300.0f, 300.0f),
+        glm::vec3(300.0f, 300.0f, 300.0f),
+        glm::vec3(300.0f, 300.0f, 300.0f)
     };
+    int  lightMoveSet = moveSet0;
+	bool turnonlight = true;
+	float tmp[4] = {300.f/255.f, 300.f/255.f, 300.f/255.f, 1.f};
+
     int nrRows = 7;
     int nrColumns = 7;
     float spacing = 2.5;
@@ -273,12 +292,21 @@ int main()
         shader.setFloat("useFresnelSchlick", 1. - selected_fn);
         shader.setFloat("useNDF", selected_ndf);
         shader.setFloat("useGeometry", selected_geo);
+<<<<<<< HEAD
         ImGui::RadioButton("sphere", &renderObj, sphere); ImGui::SameLine();
         ImGui::RadioButton("custome", &renderObj, custome);
 		if (ImGui::Checkbox("light", &turnonlight)) {
             if (!turnonlight)
             {
 				for (int i = 0; i < 4; i++)
+=======
+
+        //light source related options
+		if (ImGui::Checkbox("light", &turnonlight)) {
+            if (!turnonlight)
+            {
+				for (int i = 0; i < 8; i++)
+>>>>>>> 94e6ced69469a21561f9af7cc9c2b03cb949ebc7
 				{
 					lightColors[i][0] = 0.f;
 					lightColors[i][1] = 0.f;
@@ -287,7 +315,11 @@ int main()
             }
             else
             {
+<<<<<<< HEAD
 				for (int i = 0; i < 4; i++)
+=======
+				for (int i = 0; i < 8; i++)
+>>>>>>> 94e6ced69469a21561f9af7cc9c2b03cb949ebc7
 				{
 				lightColors[i][0] = tmp[0] * 255;
 				lightColors[i][1] = tmp[1] * 255;
@@ -298,7 +330,11 @@ int main()
 		}
         if ((ImGui::ColorEdit3("light color", tmp)) && turnonlight)
         {
+<<<<<<< HEAD
 			for (int i = 0; i < 4; i++)
+=======
+			for (int i = 0; i < 8; i++)
+>>>>>>> 94e6ced69469a21561f9af7cc9c2b03cb949ebc7
 			{
 				lightColors[i][0] = tmp[0] * 255;
 				lightColors[i][1] = tmp[1] * 255;
@@ -306,6 +342,31 @@ int main()
 			}
 
         }
+<<<<<<< HEAD
+=======
+        ImGui::RadioButton("fixed", &lightMoveSet, moveSet0); ImGui::SameLine();
+        ImGui::RadioButton("move set 1", &lightMoveSet, moveSet1); ImGui::SameLine();
+        ImGui::RadioButton("move set 2", &lightMoveSet, moveSet2);
+
+        ImGui::SliderFloat("light source move speed", &lightMoveSpeed, 0.f, 5.f);
+
+        if (ImGui::SliderFloat("light depth", &lightZ, 2.f, 20.f)) {
+            for (int i = 0; i < 8; ++i) {
+                lightPositions[i][2] = lightZ;
+            }
+        }
+        if (ImGui::SliderFloat("light distance", &lightD, 2.f, 10.f)) {
+            lightPositions[0] = glm::vec3(lightD, lightD, lightZ);
+            lightPositions[1] = glm::vec3(lightD, -lightD, lightZ);
+			lightPositions[2] = glm::vec3(-lightD, lightD, lightZ);
+            lightPositions[3] = glm::vec3(-lightD, -lightD, lightZ);
+			
+            lightPositions[4] = glm::vec3(0.0f, 2.f * lightD, lightZ);
+            lightPositions[5] = glm::vec3(0.0f, -2.f * lightD, lightZ);
+            lightPositions[6] = glm::vec3(2.f * lightD, 0.0f, lightZ);
+            lightPositions[7] = glm::vec3(-2.f * lightD, 0.0f, lightZ);
+        }
+>>>>>>> 94e6ced69469a21561f9af7cc9c2b03cb949ebc7
 
 		// Ends the window
 		ImGui::End();
@@ -357,8 +418,27 @@ int main()
         shader.setVec3("albedoVal", glm::vec3(1., 1., 1.));
         for (unsigned int i = 0; i < sizeof(lightPositions) / sizeof(lightPositions[0]); ++i)
         {
-            glm::vec3 newPos = lightPositions[i] + glm::vec3(sin(glfwGetTime() * 5.0) * 5.0, 0.0, 0.0);
-            newPos = lightPositions[i];
+            glm::vec3 newPos = lightPositions[i];
+            if (lightMoveSet == moveSet1) {
+                if (i >= 4) {
+                    newPos = lightPositions[i] + lightMoveSpeed * glm::vec3(sin(glfwGetTime() * 5.0) * 5.0, 0.0, 0.0);
+                }
+                else {
+					glm::mat4 rotateMat = glm::mat4(1.f);
+					rotateMat = glm::rotate(rotateMat, (float)glfwGetTime() * lightMoveSpeed, glm::vec3(0.f, 1.f, 0.f));
+					newPos = glm::vec3(rotateMat * glm::vec4(newPos, 1.f));
+                }
+            }
+            else if (lightMoveSet == moveSet2) {
+                if (i >= 4) {
+                    newPos = lightPositions[i] + lightMoveSpeed * glm::vec3(0.0, sin(glfwGetTime() * 5.0) * 5.0, 0.0);
+                }
+                else {
+					glm::mat4 rotateMat = glm::mat4(1.f);
+					rotateMat = glm::rotate(rotateMat, (float)glfwGetTime() * lightMoveSpeed, glm::vec3(1.f, 0.f, 0.f));
+					newPos = glm::vec3(rotateMat * glm::vec4(newPos, 1.f));
+                }
+            }
             shader.setVec3("lightPositions[" + std::to_string(i) + "]", newPos);
             shader.setVec3("lightColors[" + std::to_string(i) + "]", lightColors[i]);
 

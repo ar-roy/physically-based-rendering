@@ -31,8 +31,8 @@ uniform float useGeometry;
 uniform float useNDF;
 
 // lights
-uniform vec3 lightPositions[4];
-uniform vec3 lightColors[4];
+uniform vec3 lightPositions[8];
+uniform vec3 lightColors[8];
 
 uniform vec3 camPos;
 
@@ -123,7 +123,7 @@ void main()
 
     // reflectance equation
     vec3 Lo = vec3(0.0);
-    for(int i = 0; i < 4; ++i) 
+    for(int i = 0; i < 8; ++i) 
     {
         // calculate per-light radiance
         vec3 L = normalize(lightPositions[i] - WorldPos);
