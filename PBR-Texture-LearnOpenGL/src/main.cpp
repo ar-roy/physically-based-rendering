@@ -203,7 +203,7 @@ int main()
     shader.use();
     shader.setMat4("projection", projection);
     enum Shape { sphere, cylinder, custome };
-    int  renderObj= sphere;
+    int  renderObj= cylinder;
 
     loadOBJ();
     glDisable(GL_CULL_FACE);
@@ -232,9 +232,9 @@ int main()
 
 		// ImGUI window creation
         ImGui::Begin("PBR");
-        static const char* shapes[] = { "sphere", "cylinder", "dragon" };
-        static int selected_shape = 0;
-        ImGui::Combo("shape", &selected_shape, shapes, IM_ARRAYSIZE(shapes));
+        ImGui::RadioButton("sphere", &renderObj, sphere); ImGui::SameLine();
+        ImGui::RadioButton("cylinder", &renderObj, cylinder); ImGui::SameLine();
+        ImGui::RadioButton("custome", &renderObj, custome);
 
         static const char* texture_names[] = { "color", "gold", "grass", "plastic", "rusted", "wall" };
         static TextureProfile* texture_files[] = { nullptr, &txGold, &txGrass, &txPlastic, &txRusted, &txWall };
@@ -244,6 +244,8 @@ int main()
         static bool gradient = true;
         ImGui::Combo("texture", &selected_texture, texture_names, IM_ARRAYSIZE(texture_names));
         if (renderObj == custome) {
+            shader.setFloat("useColor", 0.);
+            gradient = false;
             txCamera.apply();
         }
         else if (texture_files[selected_texture]) {
@@ -290,8 +292,6 @@ int main()
         shader.setFloat("useFresnelSchlick", 1. - selected_fn);
         shader.setFloat("useNDF", selected_ndf);
         shader.setFloat("useGeometry", selected_geo);
-        ImGui::RadioButton("sphere", &renderObj, sphere); ImGui::SameLine();
-        ImGui::RadioButton("custome", &renderObj, custome);
 
         //light source related options
 		if (ImGui::Checkbox("light", &turnonlight)) {
