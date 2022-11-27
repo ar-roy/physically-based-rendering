@@ -167,8 +167,6 @@ int main()
     // lights
     // ------
     // light color
-	float tmp[4] = {300.f/255.f, 300.f/255.f, 300.f/255.f, 1.f};
-	bool turnonlight = true;
     glm::vec3 lightPositions[] = {
         glm::vec3(lightD, lightD, lightZ),
         glm::vec3(lightD, -lightD, lightZ),
@@ -292,21 +290,14 @@ int main()
         shader.setFloat("useFresnelSchlick", 1. - selected_fn);
         shader.setFloat("useNDF", selected_ndf);
         shader.setFloat("useGeometry", selected_geo);
-<<<<<<< HEAD
         ImGui::RadioButton("sphere", &renderObj, sphere); ImGui::SameLine();
         ImGui::RadioButton("custome", &renderObj, custome);
-		if (ImGui::Checkbox("light", &turnonlight)) {
-            if (!turnonlight)
-            {
-				for (int i = 0; i < 4; i++)
-=======
 
         //light source related options
 		if (ImGui::Checkbox("light", &turnonlight)) {
             if (!turnonlight)
             {
 				for (int i = 0; i < 8; i++)
->>>>>>> 94e6ced69469a21561f9af7cc9c2b03cb949ebc7
 				{
 					lightColors[i][0] = 0.f;
 					lightColors[i][1] = 0.f;
@@ -315,11 +306,8 @@ int main()
             }
             else
             {
-<<<<<<< HEAD
-				for (int i = 0; i < 4; i++)
-=======
+				/* for (int i = 0; i < 4; i++) */
 				for (int i = 0; i < 8; i++)
->>>>>>> 94e6ced69469a21561f9af7cc9c2b03cb949ebc7
 				{
 				lightColors[i][0] = tmp[0] * 255;
 				lightColors[i][1] = tmp[1] * 255;
@@ -330,11 +318,8 @@ int main()
 		}
         if ((ImGui::ColorEdit3("light color", tmp)) && turnonlight)
         {
-<<<<<<< HEAD
-			for (int i = 0; i < 4; i++)
-=======
+			/* for (int i = 0; i < 4; i++) */
 			for (int i = 0; i < 8; i++)
->>>>>>> 94e6ced69469a21561f9af7cc9c2b03cb949ebc7
 			{
 				lightColors[i][0] = tmp[0] * 255;
 				lightColors[i][1] = tmp[1] * 255;
@@ -342,8 +327,6 @@ int main()
 			}
 
         }
-<<<<<<< HEAD
-=======
         ImGui::RadioButton("fixed", &lightMoveSet, moveSet0); ImGui::SameLine();
         ImGui::RadioButton("move set 1", &lightMoveSet, moveSet1); ImGui::SameLine();
         ImGui::RadioButton("move set 2", &lightMoveSet, moveSet2);
@@ -366,7 +349,6 @@ int main()
             lightPositions[6] = glm::vec3(2.f * lightD, 0.0f, lightZ);
             lightPositions[7] = glm::vec3(-2.f * lightD, 0.0f, lightZ);
         }
->>>>>>> 94e6ced69469a21561f9af7cc9c2b03cb949ebc7
 
 		// Ends the window
 		ImGui::End();
