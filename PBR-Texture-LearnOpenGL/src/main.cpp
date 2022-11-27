@@ -209,41 +209,50 @@ int main()
         static int selected_texture = 0;
         static float roughness = .2, metallic = 0.;
         static float albedo[3] = { 1., 0., 0. };
+        static bool gradient = true;
         ImGui::Combo("texture", &selected_texture, texture_names, IM_ARRAYSIZE(texture_names));
         if (texture_files[selected_texture]) {
             shader.setFloat("useColor", 0.);
+            gradient = false;
             texture_files[selected_texture]->apply();
         }
         else {
             ImGui::ColorEdit3("albedo", albedo);
-            ImGui::SliderFloat("roughness", &roughness, 0., 1., "%.4f");
-            ImGui::SliderFloat("metallic", &metallic, 0., 1., "%.4f");
+            ImGui::Checkbox("gradient roughness/metallic", &gradient);
             shader.setFloat("useColor", 1.);
             shader.setVec3("albedoVal", glm::vec3(albedo[0], albedo[1], albedo[2]));
-            shader.setFloat("roughnessVal", roughness);
-            shader.setFloat("metallicVal", metallic);
             shader.setFloat("aoVal", 1.);
+            if (!gradient) {
+                ImGui::SliderFloat("roughness", &roughness, 0., 1., "%.4f");
+                ImGui::SliderFloat("metallic", &metallic, 0., 1., "%.4f");
+                shader.setFloat("roughnessVal", roughness);
+                shader.setFloat("metallicVal", metallic);
+            }
         }
 
         static float ambient = .03;
-        static bool hdr_gamma = true;
+        static bool hdr_gamma = true, show_diffuse = true, show_specular = true;
         ImGui::Checkbox("HDR / Gamma Correction", &hdr_gamma);
         ImGui::SliderFloat("ambient", &ambient, 0, 0.1, "%.4f");
+        ImGui::Checkbox("diffuse", &show_diffuse);
+        ImGui::Checkbox("specular", &show_specular);
+        shader.setFloat("showDiffuse", show_diffuse ? 1. : 0.);
+        shader.setFloat("showSpecular", show_specular ? 1. : 0.);
         shader.setFloat("ambientVal", ambient);
         shader.setFloat("useCorrection", hdr_gamma ? 1. : 0.);
         
-        static bool fresnel_schlick = true;
         static float fresnel0 = 0.04;
-        ImGui::Checkbox("Schlick Fresnel", &fresnel_schlick);
         ImGui::SliderFloat("F0", &fresnel0, 0., 1., "%.4f");
-        shader.setFloat("useFresnelSchlick", fresnel_schlick ? 1. : 0.);
         shader.setFloat("f0Val", fresnel0);
 
+        static const char* fn_options[] = { "Schlick", "constant" };
         static const char* ndf_options[] = { "GGX Trowbridge-Reitz", "Blinn-Phong", "off"};
         static const char* geo_options[] = { "Smith Schlick-GGX", "Kelemen", "off" };
-        static int selected_ndf = 0, selected_geo = 0;
+        static int selected_fn = 0, selected_ndf = 0, selected_geo = 0;
+        ImGui::Combo("Fresnel", &selected_fn, fn_options, IM_ARRAYSIZE(fn_options));
         ImGui::Combo("Normal Distribution", &selected_ndf, ndf_options, IM_ARRAYSIZE(ndf_options));
         ImGui::Combo("Geometry", &selected_geo, geo_options, IM_ARRAYSIZE(geo_options));
+        shader.setFloat("useFresnelSchlick", 1. - selected_fn);
         shader.setFloat("useNDF", selected_ndf);
         shader.setFloat("useGeometry", selected_geo);
 		// Ends the window
@@ -258,8 +267,10 @@ int main()
         glm::mat4 model = glm::mat4(1.0f);
         for (int row = 0; row < nrRows; ++row)
         {
+            if (gradient) shader.setFloat("metallicVal", 1. * (row) / (nrRows));
             for (int col = 0; col < nrColumns; ++col)
             {
+                if (gradient) shader.setFloat("roughnessVal", glm::clamp(1. * (col) / (nrColumns), 0.05, 1.0));
                 model = glm::mat4(1.0f);
                 model = glm::translate(model, glm::vec3(
                     (float)(col - (nrColumns / 2)) * spacing,
